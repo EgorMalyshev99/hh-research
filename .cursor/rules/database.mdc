@@ -1,0 +1,35 @@
+---
+description: Drizzle-схема, миграции, работа с БД в apps/api.
+globs: apps/api/src/database/**/*
+alwaysApply: false
+---
+
+# База данных (Drizzle + PostgreSQL)
+
+## Где схема
+
+- Подключение к БД — только **`DATABASE_URL`** из env (схема в `config.schema.ts`), без хардкода host в коде.
+- Таблицы: `apps/api/src/database/schema/*.ts`
+- Реэкспорт: `apps/api/src/database/schema/index.ts`
+- Подключение: `DatabaseModule`, инжект `DRIZZLE` (см. `backend.mdc`)
+
+## Миграции (dev)
+
+```bash
+pnpm --filter api drizzle-kit push
+```
+
+Для продакшена по плану: `drizzle-kit generate` → применение SQL-миграций, **не** `push`.
+
+## Именование
+
+- Таблицы и колонки в БД: `snake_case`
+- TS-константы таблиц Drizzle: `camelCase` (`searchRuns`, `companyName` в `pgTable` маппится на `company_name`)
+
+## Связи
+
+Все пользовательские данные привязаны к `users.id` через `userId` + `onDelete: 'cascade'`.
+
+## Upsert вакансий
+
+Уникальный индекс `(user_id, hh_id)` — обновление через `onConflictDoUpdate` в `VacanciesService.upsertScored`.

@@ -1,0 +1,12 @@
+{
+  "extends": "@repo/typescript-config/vue.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@repo/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts", "env.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

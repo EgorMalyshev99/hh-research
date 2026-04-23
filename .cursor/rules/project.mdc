@@ -1,0 +1,76 @@
+---
+description: Общий контекст проекта hh-assistant. Читать при любой работе с репозиторием.
+globs: **/*
+alwaysApply: true
+---
+
+# hh-assistant — общие правила проекта
+
+## Контекст
+
+Локальный ассистент поиска работы: hh.ru + LLM-скоринг + сопроводительные письма.
+Полный контекст и прогресс по фазам — в `AGENTS.md` в корне репозитория.
+
+## Монорепо
+
+**Менеджер пакетов**: `pnpm` (workspace). Не использовать `npm` или `yarn`.
+
+```
+apps/api/   — NestJS backend
+apps/web/   — Vue 3 frontend (FSD)
+packages/shared/          — zod-схемы и TypeScript-типы (общие для api и web)
+packages/eslint-config/   — ESLint 10.2.1 flat config (пресеты base, nest, vue)
+packages/typescript-config/ — tsconfig пресеты (base, nestjs, vue)
+```
+
+## Домены разработки
+
+Примеры hostname для `/etc/hosts` (сами URL в рантайме — из энвов, см. ниже):
+
+| Сервис       | Пример URL                        |
+| ------------ | --------------------------------- |
+| Web (Vite)   | http://hh-research.loc:3001       |
+| API (NestJS) | http://api.hh-research.loc:3000   |
+| PostgreSQL   | localhost:5432                    |
+
+## Переменные окружения
+
+- **Базовые URL и ссылки** не хардкодить в прикладном коде: фронт — `VITE_API_URL` и `apps/web/src/shared/config/env.ts`; API — `FRONTEND_URL`, `HH_API_BASE`, `GEMINI_API_BASE`, `OPENROUTER_API_BASE`, `GROQ_API_BASE` и др. в `apps/api/src/config/config.schema.ts` + `.env.example`.
+- `.env` для API: `apps/api/.env` — **не в корне**; для web: `apps/web/.env` (по необходимости), шаблон — `apps/web/.env.example`.
+- Никогда не коммитить `.env` — только `.env.example`.
+- Валидация env через zod-схему при старте API.
+
+## Зависимости между пакетами
+
+- `packages/shared` — импортируется в `apps/api` и `apps/web`. Без runtime-зависимостей, только типы и zod-схемы.
+- ESLint конфиги — только devDependencies.
+- Никаких cross-imports между `apps/api` и `apps/web`.
+
+## Запуск
+
+```bash
+docker compose up -d                 # PostgreSQL 17 (обязателен до старта API)
+pnpm install
+pnpm --filter api drizzle-kit push   # применить схему к БД
+pnpm dev                             # запуск всех приложений
+```
+
+## Docker
+
+`docker-compose.yml` в корне содержит только PostgreSQL.
+Приложения (api, web) запускаются локально через `pnpm dev`, не в Docker.
+
+## Стиль кода
+
+- **TypeScript strict** везде.
+- Форматирование — **prettier** (`pnpm format`).
+- Линт — **ESLint 10 flat config** (`pnpm lint`).
+- Импорты: абсолютные пути через `@/` в `apps/web`, относительные внутри модуля в `apps/api`.
+- Комментарии в коде — на **русском** языке (документирующие) или английском (JSDoc-теги).
+
+## Context7
+
+При работе с внешними пакетами — сверяться с документацией через context7 MCP
+(`resolve-library-id` → `query-docs`). Особенно важно для:
+
+- `vue-router`, **shadcn-vue Forms + vee-validate** ([дока форм](https://www.shadcn-vue.com/docs/forms/vee-validate)), `shadcn-vue` CLI/тема, `drizzle-orm`, `nestjs-pino`

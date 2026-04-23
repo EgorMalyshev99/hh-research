@@ -1,0 +1,132 @@
+---
+description: NestJS-соглашения, Drizzle-паттерны, архитектура API. Читать при работе с apps/api/.
+globs: apps/api/**/*
+alwaysApply: false
+---
+
+# Backend (NestJS 11) — правила и паттерны
+
+## Структура модуля NestJS
+
+Каждый модуль — папка `src/<module>/`:
+```
+<module>/
+  <module>.module.ts       — @Module() декоратор
+  <module>.controller.ts   — HTTP-эндпоинты (опционально)
+  <module>.service.ts      — бизнес-логика
+  dto/                     — входящие данные (созданы из zod через nestjs-zod или вручную)
+  guards/                  — @UseGuards()
+  strategies/              — Passport-стратегии
+```
+
+## Инжектирование Drizzle
+
+Drizzle не инжектируется через NestJS DI по классу — используется Symbol:
+
+```typescript
+import { Inject, Injectable } from '@nestjs/common';
+import { DRIZZLE, type DrizzleDb } from '../database/database.module.js';
+
+@Injectable()
+export class SomeService {
+  constructor(@Inject(DRIZZLE) private db: DrizzleDb) {}
+}
+```
+
+## Схемы БД (Drizzle)
+
+Все таблицы в `src/database/schema/*.ts`, экспортируются через `src/database/schema/index.ts`.
+
+Паттерн таблицы:
+```typescript
+import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+
+export const things = pgTable('things', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Thing = typeof things.$inferSelect;
+export type NewThing = typeof things.$inferInsert;
+```
+
+После изменения схемы:
+```bash
+pnpm --filter api drizzle-kit push   # применить к dev БД
+pnpm --filter api drizzle-kit generate  # сгенерировать migration SQL
+```
+
+## Конфигурация (ConfigService)
+
+Все env-переменные типизированы через `AppConfig` (`src/config/config.schema.ts`):
+
+```typescript
+import { ConfigService } from '@nestjs/config';
+import type { AppConfig } from '../config/config.schema.js';
+
+constructor(private configService: ConfigService<AppConfig, true>) {}
+
+// Использование:
+const secret = this.configService.getOrThrow('JWT_ACCESS_SECRET');
+```
+
+**URL внешних и внутренних сервисов** (`FRONTEND_URL`, `HH_API_BASE`, `GEMINI_API_BASE`, `OPENROUTER_API_BASE`, `GROQ_API_BASE` и т.д.) — только из `ConfigService` / схемы с zod-дефолтами, не строковые литералы в сервисах.
+
+**LLM:** провайдер и модель — из **`POST /search/run`** + `settings` (`LlmRuntimeContext`); ключи только в env. **`GET /llm/status`** возвращает статус каждого из `gemini | openrouter | groq`. **Gemini** — Generative Language API; **openrouter** / **groq** — OpenAI-compatible в `LlmService`.
+
+## Авторизация
+
+- `JwtAuthGuard` — применять через `@UseGuards(JwtAuthGuard)` к защищённым эндпоинтам
+- JWT payload: `{ sub: number, email: string }` (тип `JwtPayload`)
+- Refresh-токен — в httpOnly cookie `refresh_token`
+- `bcryptjs` — для хэширования паролей (cost factor = 12) и токенов (cost factor = 10)
+
+## Валидация входящих данных
+
+Zod-схемы живут в `packages/shared/src/schemas/`.
+
+В контроллерах: парсить `@Body() body: unknown` через zod напрямую:
+```typescript
+@Post('example')
+async create(@Body() body: unknown) {
+  const dto = ExampleSchema.parse(body);
+  // ...
+}
+```
+
+Или использовать `nestjs-zod` для автоматической валидации через pipe.
+
+## Логирование
+
+Использовать `Logger` из `@nestjs/common` (не из nestjs-pino напрямую):
+```typescript
+import { Injectable, Logger } from '@nestjs/common';
+
+@Injectable()
+export class MyService {
+  private readonly logger = new Logger(MyService.name);
+
+  doSomething() {
+    this.logger.log('Выполняю действие');
+    this.logger.debug('Детали отладки');
+    this.logger.error('Ошибка', error.stack);
+  }
+}
+```
+
+## SSE (Server-Sent Events)
+
+Поиск (`SearchModule`): `POST /api/search/run` после `validateBeforeRun` (в т.ч. `assertLlmAvailable` → 503) запускает `executeRun` в фоне; прогресс — `GET /api/search/stream` + `@Sse()`, `ReplaySubject` на `userId`, события JSON в `MessageEvent.data` (типы `SearchStreamEvent` в `@repo/shared`). Клиент с `EventSource` передаёт JWT в query `access_token` (см. `JwtStrategy`).
+
+## Именование файлов
+
+- Файлы: `kebab-case.ts` (например, `jwt-auth.guard.ts`)
+- Классы: `PascalCase` (например, `JwtAuthGuard`)
+- Переменные/методы: `camelCase`
+
+## Импорты
+
+- Внутри модуля: относительные (`./service.js`, `../database/schema/index.js`)
+- `@repo/shared` — через path alias (tsconfig paths)
+- Все `.js` расширения в импортах (ESM-совместимость в CJS-билде через tsc)

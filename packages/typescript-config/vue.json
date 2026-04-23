@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
+    "useDefineForClassFields": true,
+    "noEmit": true,
+    "paths": {}
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

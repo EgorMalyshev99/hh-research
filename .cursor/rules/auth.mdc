@@ -1,0 +1,33 @@
+---
+description: JWT, refresh-cookie, публичные маршруты, стратегия Passport.
+globs: apps/api/src/auth/**/*
+alwaysApply: false
+---
+
+# Авторизация (JWT)
+
+## Глобальный guard
+
+- `JwtAuthGuard` регистрируется в `AuthModule` как `APP_GUARD` (`useExisting: JwtAuthGuard`).
+- Маршруты **без** аутентификации помечаются `@Public()` из `src/common/decorators/public.decorator.ts`.
+- Публичные: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`.
+
+## Токены
+
+- **Access**: `Authorization: Bearer <jwt>`, короткий TTL (env `JWT_ACCESS_EXPIRES_IN`).
+- **Refresh**: httpOnly cookie `refresh_token`, отдельный секрет `JWT_REFRESH_SECRET`, подпись через `JwtService` с `expiresIn` из `JWT_REFRESH_EXPIRES_IN`.
+- В БД хранится **bcrypt-хэш** refresh-токена (`refresh_tokens.token_hash`); при logout сравнение через `bcrypt.compare`, не повторный hash.
+
+## Passport JWT
+
+- `JwtStrategy` читает access JWT из:
+  1. заголовка `Authorization: Bearer`,
+  2. query `access_token` (для `EventSource` / SSE, где нельзя задать заголовки).
+
+## Payload
+
+`JwtPayload`: `{ sub: number; email: string }` — `sub` это `users.id` (serial).
+
+## URL
+
+Origin фронта для CORS — **`FRONTEND_URL`** из `ConfigService` / `apps/api/.env` (см. `main.ts`).

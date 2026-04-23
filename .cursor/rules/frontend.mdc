@@ -1,0 +1,187 @@
+---
+description: FSD-правила, Vue 3, axios, формы (shadcn-vue + vee-validate по плану), SSE. Читать при работе с apps/web/.
+globs: apps/web/**/*
+alwaysApply: false
+---
+
+# Frontend (Vue 3 + FSD) — правила и паттерны
+
+## Feature-Sliced Design (FSD) — слои
+
+```
+src/
+  app/        — инициализация (main.ts, App.vue, providers/, styles/)
+  pages/      — страницы = файловые маршруты (vue-router file-based)
+  widgets/    — составные блоки UI (шапка, сайдбар, карточка вакансии)
+  features/   — бизнес-действия (поиск, скоринг, генерация письма)
+  entities/   — бизнес-сущности (auth, vacancy, settings)
+  shared/     — переиспользуемые утилиты без бизнес-логики
+```
+
+**Правило импортов** (enforced eslint-plugin-boundaries):
+- Слой может импортировать только нижестоящие слои
+- `pages` → `widgets` → `features` → `entities` → `shared`
+- Нельзя: `shared` → `entities`, `features` → `pages` и т.д.
+
+Каждый слой имеет публичный API через `index.ts`:
+```typescript
+// entities/auth/index.ts
+export { useAuthStore } from './model/auth.store';
+export { authApi } from './api/auth.api';
+```
+
+Импортировать только через публичный API: `import { useAuthStore } from '@/entities/auth'`
+
+## Структура сегмента (внутри слоя)
+
+```
+entities/vacancy/
+  api/          — функции запросов к API
+  model/        — Pinia stores, типы
+  ui/           — Vue-компоненты этой сущности
+  index.ts      — публичный API
+```
+
+## Routing (Vue Router file-based)
+
+Страницы в `src/pages/` → автоматически становятся маршрутами:
+```
+src/pages/index.vue        → /
+src/pages/login.vue        → /login
+src/pages/settings.vue     → /settings
+src/pages/history.vue      → /history
+```
+
+Vite-плагин `vue-router/vite` генерирует маршруты. В `main.ts` подключить:
+```typescript
+import { routes, handleHotUpdate } from 'vue-router/auto-routes';
+const router = createRouter({ history: createWebHistory(), routes });
+if (import.meta.hot) handleHotUpdate(router);
+```
+
+## HTTP-клиент (axios)
+
+Единственный экземпляр: `@/shared/api/http.ts`; **`baseURL`** берётся из **`VITE_API_URL`** через `@/shared/config/env.ts` (`API_BASE_URL`). Не дублировать URL строками в фичах — импортировать `http` или `apiPath()` из `env.ts`.
+
+Уже настроен:
+- Interceptor запроса: подставляет Bearer-токен из localStorage
+- Interceptor ответа: при 401 пробует refresh через `/auth/refresh`
+
+Паттерн API-файла:
+```typescript
+// entities/vacancy/api/vacancy.api.ts
+import { http } from '@/shared/api/http';
+import type { ScoredVacancy } from '@repo/shared';
+
+export const vacancyApi = {
+  getAll: () => http.get<ScoredVacancy[]>('/vacancies').then(r => r.data),
+  getById: (id: number) => http.get<ScoredVacancy>(`/vacancies/${id}`).then(r => r.data),
+};
+```
+
+## Формы — как в `PROJECT_PLAN.md` (shadcn-vue Forms + vee-validate)
+
+**Источник правды:** [VeeValidate — shadcn/vue](https://www.shadcn-vue.com/docs/forms/vee-validate) (и context7 при сомнениях).
+
+### Обязательный флоу
+
+1. **Импорты:** `import { Field as VeeField } from 'vee-validate'` и **`toTypedSchema`** из `@vee-validate/zod`. UI-**`Field`**, **`FieldLabel`**, **`FieldError`**, **`Input`** и т.д. — из `@/shared/ui/...` **после** `pnpm dlx shadcn-vue@latest add field input label button card` (пути как в доке shadcn-vue).
+2. **Схема:** zod из `@repo/shared` (`LoginSchema`, `RegisterSchema`, …): `const formSchema = toTypedSchema(LoginSchema)`.
+3. **`useForm`:** `validationSchema: formSchema`, при необходимости `initialValues` / `resetForm` — как в официальном примере.
+4. **Разметка поля:** `<VeeField name="..." v-slot="{ field, errors }">` → внутри shadcn **`<Field :data-invalid="!!errors.length">`** → **`<FieldLabel>`** → **`<Input v-bind="field" :aria-invalid="!!errors.length" />`** → **`<FieldError v-if="errors.length" :errors="errors" />`**.
+5. **Не использовать** на новых экранах только **`defineField`** без связки **`VeeField` + shadcn `Field`** (временно до установки shadcn допускается тот же слот `VeeField` + семантичный HTML + те же `aria-*`, см. текущие `login`/`register` — при появлении `shared/ui` заменить на примитивы из доки).
+
+### Цвета UI (сине-фиолетовый primary)
+
+По плану: **primary** — indigo/violet (например кнопки `bg-indigo-600`, акценты ссылок `text-violet-600`), фон страниц — **slate/zinc**, не нейтральный серый без привязки к палитре.
+
+## Pinia Store (FSD-паттерн)
+
+Stores живут в `entities/<name>/model/<name>.store.ts` или `features/<name>/model/`.
+
+Использовать Composition API стиль:
+```typescript
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+
+export const useVacancyStore = defineStore('vacancy', () => {
+  const items = ref<ScoredVacancy[]>([]);
+  const isLoading = ref(false);
+
+  const relevant = computed(() => items.value.filter(v => v.isRelevant));
+
+  async function fetchAll() {
+    isLoading.value = true;
+    try {
+      items.value = await vacancyApi.getAll();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  return { items, isLoading, relevant, fetchAll };
+});
+```
+
+## SSE (Server-Sent Events)
+
+`EventSource` **не передаёт** заголовок `Authorization`. Для `GET /api/search/stream` передавать access JWT в query: **`?access_token=<jwt>`** (см. `JwtStrategy` на API).
+
+```typescript
+import { apiPath } from '@/shared/config/env';
+
+const token = localStorage.getItem('access_token');
+const es = new EventSource(
+  `${apiPath('/search/stream')}?access_token=${encodeURIComponent(token ?? '')}`,
+  { withCredentials: true },
+);
+
+es.onmessage = (event) => {
+  const parsed = SearchStreamEventSchema.safeParse(JSON.parse(event.data));
+  if (parsed.success) {
+    // обработка
+  }
+};
+
+es.onerror = () => es.close();
+```
+
+## Именование
+
+| Сущность | Стиль | Пример |
+|---|---|---|
+| Файлы компонентов | PascalCase | `VacancyCard.vue` |
+| Другие файлы | kebab-case | `vacancy.api.ts` |
+| Props | camelCase | `vacancyId` |
+| Events | kebab-case | `@update:model-value` |
+| CSS-классы | Tailwind утилиты |  |
+
+## Компонент: структура
+
+```vue
+<script setup lang="ts">
+// 1. Импорты
+// 2. Props и emits
+// 3. Composables (useRouter, useStore...)
+// 4. Reactive state
+// 5. Computed
+// 6. Methods
+// 7. Lifecycle hooks
+</script>
+
+<template>
+  <!-- одиночный корневой элемент или Fragment -->
+</template>
+```
+
+## shadcn-vue
+
+- Инициализация: `pnpm dlx shadcn-vue@latest init` (Tailwind v4, Reka UI).
+- Формы: `pnpm dlx shadcn-vue@latest add field input label button card textarea select` — по экранам.
+- Документация форм: https://www.shadcn-vue.com/docs/forms/vee-validate
+
+## Импорты
+
+- `@/` — алиас для `src/` (настроен в vite.config.ts и tsconfig.json)
+- Из слоёв — только через публичный `index.ts`
+- `@repo/shared` — для zod-схем и TypeScript-типов
