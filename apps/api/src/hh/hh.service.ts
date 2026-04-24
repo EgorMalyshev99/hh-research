@@ -141,6 +141,7 @@ export class HhService {
         const response = await fetch(`${this.configService.getOrThrow('HH_API_BASE')}${path}`, {
           headers: {
             Accept: 'application/json',
+            'User-Agent': this.configService.getOrThrow('HH_USER_AGENT'),
             'HH-User-Agent': this.configService.getOrThrow('HH_USER_AGENT'),
           },
           signal: AbortSignal.timeout(HH_TIMEOUT_MS),
