@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "build:vercel": "pnpm drizzle:migrate && pnpm build",
+    "build:vercel": "pnpm drizzle:migrate && nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
     "lint": "eslint .",
