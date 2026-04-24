@@ -10,7 +10,7 @@ export const configSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   FRONTEND_URL: z.string().url('FRONTEND_URL должен быть корректным URL'),
   HH_API_BASE: z.string().url().default('https://api.hh.ru'),
-  HH_USER_AGENT: z.string().min(1).default('hh-research-api/1.0 (local-dev)'),
+  HH_USER_AGENT: z.string().min(1).default('User-Agent: HHResearch/1.0 (yegorka999@gmail.com)'),
   GEMINI_API_BASE: z.string().url().default('https://generativelanguage.googleapis.com/v1beta'),
   GEMINI_API_KEY: z.string().optional(),
   OPENROUTER_API_BASE: z.string().url().default('https://openrouter.ai/api/v1'),
