@@ -22,6 +22,8 @@ export const configSchema = z.object({
   /** Groq: OpenAI-совместимый префикс до /v1 включительно */
   GROQ_API_BASE: z.string().url().default('https://api.groq.com/openai/v1'),
   GROQ_API_KEY: z.string().optional(),
+  /** Таймаут HTTP к LLM-провайдеру (скоринг, письма), мс */
+  LLM_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
 })
 
 export type AppConfig = z.infer<typeof configSchema>

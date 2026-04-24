@@ -1,13 +1,15 @@
 import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
+import type { LoginDto, RegisterDto } from '@repo/shared'
 import * as bcrypt from 'bcryptjs'
 import { and, eq, gt } from 'drizzle-orm'
-import type { LoginDto, RegisterDto } from '@repo/shared'
+
+import type { AppConfig } from '../config/config.schema.js'
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
 import { refreshTokens } from '../database/schema/index.js'
-import type { AppConfig } from '../config/config.schema.js'
 import { UsersService } from '../users/users.service.js'
+
 import type { AuthTokenPair } from './auth-tokens.js'
 import type { JwtPayload } from './strategies/jwt.strategy.js'
 
@@ -17,7 +19,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService<AppConfig, true>,
-    @Inject(DRIZZLE) private db: DrizzleDb,
+    @Inject(DRIZZLE) private db: DrizzleDb
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthTokenPair> {

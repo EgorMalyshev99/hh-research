@@ -1,19 +1,15 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Req,
-} from '@nestjs/common'
-import type { Request } from 'express'
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Req } from '@nestjs/common'
+import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger'
 import { CreateBlacklistEntrySchema } from '@repo/shared'
+import type { Request } from 'express'
+
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
+
+import { CreateBlacklistEntryBodyDto } from './dto/blacklist.dto.js'
 import { BlacklistService } from './blacklist.service.js'
 
+@ApiTags('blacklist')
+@ApiBearerAuth('access-token')
 @Controller('blacklist')
 export class BlacklistController {
   constructor(private blacklistService: BlacklistService) {}
@@ -29,6 +25,7 @@ export class BlacklistController {
   }
 
   @Post()
+  @ApiBody({ type: CreateBlacklistEntryBodyDto })
   async add(@Req() req: Request & { user: JwtPayload }, @Body() body: unknown) {
     const parsed = CreateBlacklistEntrySchema.safeParse(body)
     if (!parsed.success) {

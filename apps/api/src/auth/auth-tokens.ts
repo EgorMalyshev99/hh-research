@@ -1,5 +1,5 @@
 /** Пара токенов после логина (refresh уходит только в httpOnly-cookie) */
-export type AuthTokenPair = {
+export interface AuthTokenPair {
   accessToken: string
   refreshToken: string
 }

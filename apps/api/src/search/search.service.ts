@@ -1,12 +1,12 @@
 import { BadRequestException, Inject, Injectable, Logger, MessageEvent } from '@nestjs/common'
-import { eq } from 'drizzle-orm'
-import type { CoverLetterConfig, LlmRuntimeContext, SearchConfig, SearchStreamEvent } from '@repo/shared'
 import { CoverLetterConfigSchema, LlmRuntimeContextSchema, RunSearchBodySchema } from '@repo/shared'
+import type { CoverLetterConfig, LlmRuntimeContext, SearchConfig, SearchStreamEvent, Vacancy } from '@repo/shared'
+import { eq } from 'drizzle-orm'
 import { ReplaySubject, Observable } from 'rxjs'
+
+import { BlacklistService } from '../blacklist/blacklist.service.js'
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
 import { searchRuns } from '../database/schema/index.js'
-import type { Vacancy } from '@repo/shared'
-import { BlacklistService } from '../blacklist/blacklist.service.js'
 import { HhService } from '../hh/hh.service.js'
 import { LlmService } from '../llm/llm.service.js'
 import { SettingsService } from '../settings/settings.service.js'
@@ -14,7 +14,21 @@ import { VacanciesService } from '../vacancies/vacancies.service.js'
 
 const STREAM_BUFFER = 80
 
-export type ValidatedSearchRun = {
+const HYBRID_KEYWORDS = [
+  'гибрид',
+  'hybrid',
+  '2/3',
+  '3/2',
+  '3/4',
+  '4/1',
+  'несколько дней в офисе',
+  'частично удалённо',
+  'частично удаленно',
+  'частичная удалёнка',
+  'смешанный формат',
+]
+
+export interface ValidatedSearchRun {
   searchConfig: SearchConfig
   llm: LlmRuntimeContext
 }
@@ -30,7 +44,7 @@ export class SearchService {
     private llm: LlmService,
     private settingsService: SettingsService,
     private blacklistService: BlacklistService,
-    private vacanciesService: VacanciesService,
+    private vacanciesService: VacanciesService
   ) {}
 
   watch(userId: number): Observable<MessageEvent> {
@@ -67,14 +81,9 @@ export class SearchService {
     const { searchConfig: config, llm } = payload
     const settings = await this.settingsService.getOrCreate(userId)
     const resume = settings.resumeMarkdown ?? ''
-    const coverCfg: CoverLetterConfig = CoverLetterConfigSchema.parse(
-      settings.coverLetterConfig ?? {},
-    )
+    const coverCfg: CoverLetterConfig = CoverLetterConfigSchema.parse(settings.coverLetterConfig ?? {})
 
-    const [run] = await this.db
-      .insert(searchRuns)
-      .values({ userId, status: 'running' })
-      .returning()
+    const [run] = await this.db.insert(searchRuns).values({ userId, status: 'running' }).returning()
     if (!run) {
       this.logger.error('Не удалось создать search_run')
       return
@@ -85,9 +94,7 @@ export class SearchService {
 
       const rawList = await this.hh.searchVacancies(config)
       const blacklist = await this.blacklistService.companyNamesLower(userId)
-      const filtered = rawList.filter(
-        (v) => passesBlacklist(v, blacklist) && passesLocalKeywords(v, config.query),
-      )
+      const filtered = rawList.filter((v) => passesBlacklist(v, blacklist) && passesLocalKeywords(v, config.query))
 
       this.emit(userId, { type: 'progress', stage: 'fetch', found: filtered.length })
 
@@ -102,6 +109,15 @@ export class SearchService {
         })
 
         const vacancyText = await this.hh.buildVacancyTextForLlm(v)
+
+        if (config.scheduleFilter?.length && v.schedule?.id === 'fullDay') {
+          const wantsHybrid = config.scheduleFilter.includes('hybrid')
+          const wantsOffice = config.scheduleFilter.includes('office')
+          const hybrid = isHybridVacancy(vacancyText)
+          if (wantsHybrid && !wantsOffice && !hybrid) continue
+          if (wantsOffice && !wantsHybrid && hybrid) continue
+        }
+
         const scored = await this.llm.scoreVacancy(vacancyText, resume, llm)
         const processedAt = new Date().toISOString()
 
@@ -120,7 +136,7 @@ export class SearchService {
               length: coverCfg.length,
               language: coverCfg.language,
             },
-            llm,
+            llm
           )
           aboveThreshold++
         }
@@ -192,4 +208,9 @@ function passesLocalKeywords(v: Vacancy, query: string): boolean {
     .filter(Boolean)
   if (!tokens.length) return true
   return tokens.every((t) => text.includes(t))
+}
+
+function isHybridVacancy(text: string): boolean {
+  const lower = text.toLowerCase()
+  return HYBRID_KEYWORDS.some((kw) => lower.includes(kw))
 }

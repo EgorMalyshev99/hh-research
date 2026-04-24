@@ -5,6 +5,12 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "api:dev": "turbo run dev --filter=api",
+    "api:build": "turbo run build --filter=api",
+    "api:lint": "turbo run lint --filter=api",
+    "web:dev": "turbo run dev --filter=web",
+    "web:build": "turbo run build --filter=web",
+    "web:lint": "turbo run lint --filter=web",
     "check-types": "turbo run check-types",
     "format": "prettier --write \"**/*.{ts,vue,md,json}\"",
     "format:check": "prettier --check \"**/*.{ts,vue,md,json}\""

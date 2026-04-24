@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common'
-import { and, eq } from 'drizzle-orm'
 import type { CreateBlacklistEntryDto } from '@repo/shared'
+import { and, eq } from 'drizzle-orm'
+
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
 import { blacklist, type BlacklistRow } from '../database/schema/index.js'
 

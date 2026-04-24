@@ -1,15 +1,82 @@
-<script setup lang="ts">
-import { Field as VeeField, useForm } from 'vee-validate'
-import { toTypedSchema } from '@vee-validate/zod'
-import { RegisterSchema } from '@repo/shared'
-import { useAuthStore } from '@/entities/auth/model/auth.store'
-import { useRouter } from 'vue-router'
+<template>
+  <div class="bg-muted/40 flex min-h-screen items-center justify-center p-4">
+    <Card class="w-full max-w-md shadow-md">
+      <CardHeader>
+        <CardTitle class="text-center text-2xl"> Регистрация </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form class="space-y-4" @submit.prevent="onSubmit">
+          <VeeField v-slot="{ field, errors }" name="name">
+            <Field :data-invalid="!!errors.length">
+              <FieldLabel :for="field.name"> Имя </FieldLabel>
+              <Input
+                v-bind="field"
+                :id="field.name"
+                type="text"
+                placeholder="Иван Иванов"
+                :aria-invalid="!!errors.length"
+              />
+              <FieldError :errors="errors" />
+            </Field>
+          </VeeField>
 
+          <VeeField v-slot="{ field, errors }" name="email">
+            <Field :data-invalid="!!errors.length">
+              <FieldLabel :for="field.name"> Email </FieldLabel>
+              <Input
+                v-bind="field"
+                :id="field.name"
+                type="email"
+                placeholder="you@example.com"
+                :aria-invalid="!!errors.length"
+              />
+              <FieldError :errors="errors" />
+            </Field>
+          </VeeField>
+
+          <VeeField v-slot="{ field, errors }" name="password">
+            <Field :data-invalid="!!errors.length">
+              <FieldLabel :for="field.name"> Пароль </FieldLabel>
+              <Input
+                v-bind="field"
+                :id="field.name"
+                type="password"
+                placeholder="Минимум 8 символов"
+                :aria-invalid="!!errors.length"
+              />
+              <FieldError :errors="errors" />
+            </Field>
+          </VeeField>
+
+          <Button type="submit" class="w-full" :disabled="isSubmitting">
+            {{ isSubmitting ? 'Создание...' : 'Создать аккаунт' }}
+          </Button>
+        </form>
+
+        <p class="text-muted-foreground mt-6 text-center text-sm">
+          Уже есть аккаунт?
+          <RouterLink to="/login" class="text-primary hover:underline"> Войти </RouterLink>
+        </p>
+      </CardContent>
+    </Card>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { RegisterSchema } from '@repo/shared'
+import { toTypedSchema } from '@vee-validate/zod'
+import { Field as VeeField, useForm } from 'vee-validate'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { useAuthStore } from '@/entities/auth/model/auth.store'
+
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-
-const fieldInputClass =
-  'mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
 
 const { handleSubmit, isSubmitting } = useForm({
   validationSchema: toTypedSchema(RegisterSchema),
@@ -17,83 +84,7 @@ const { handleSubmit, isSubmitting } = useForm({
 
 const onSubmit = handleSubmit(async (values) => {
   await authStore.register(values)
-  await router.push('/')
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null
+  await router.push(redirect?.startsWith('/') ? redirect : '/')
 })
 </script>
-
-<template>
-  <div class="flex min-h-screen items-center justify-center bg-slate-50">
-    <div class="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow">
-      <div>
-        <h2 class="text-center text-3xl font-bold text-slate-900">Регистрация</h2>
-      </div>
-
-      <form class="space-y-4" @submit.prevent="onSubmit">
-        <VeeField v-slot="{ field, errors }" name="name">
-          <div :data-invalid="errors.length > 0">
-            <label class="block text-sm font-medium text-slate-700" :for="field.name">Имя</label>
-            <input
-              v-bind="field"
-              :id="field.name"
-              type="text"
-              :class="fieldInputClass"
-              :aria-invalid="errors.length > 0"
-              placeholder="Иван Иванов"
-            />
-            <ul v-if="errors.length" class="mt-1 list-disc space-y-0.5 pl-4 text-sm text-rose-600" role="alert">
-              <li v-for="(msg, i) in errors" :key="i">{{ msg }}</li>
-            </ul>
-          </div>
-        </VeeField>
-
-        <VeeField v-slot="{ field, errors }" name="email">
-          <div :data-invalid="errors.length > 0">
-            <label class="block text-sm font-medium text-slate-700" :for="field.name">Email</label>
-            <input
-              v-bind="field"
-              :id="field.name"
-              type="email"
-              :class="fieldInputClass"
-              :aria-invalid="errors.length > 0"
-              placeholder="you@example.com"
-            />
-            <ul v-if="errors.length" class="mt-1 list-disc space-y-0.5 pl-4 text-sm text-rose-600" role="alert">
-              <li v-for="(msg, i) in errors" :key="i">{{ msg }}</li>
-            </ul>
-          </div>
-        </VeeField>
-
-        <VeeField v-slot="{ field, errors }" name="password">
-          <div :data-invalid="errors.length > 0">
-            <label class="block text-sm font-medium text-slate-700" :for="field.name">Пароль</label>
-            <input
-              v-bind="field"
-              :id="field.name"
-              type="password"
-              :class="fieldInputClass"
-              :aria-invalid="errors.length > 0"
-              placeholder="Минимум 8 символов"
-            />
-            <ul v-if="errors.length" class="mt-1 list-disc space-y-0.5 pl-4 text-sm text-rose-600" role="alert">
-              <li v-for="(msg, i) in errors" :key="i">{{ msg }}</li>
-            </ul>
-          </div>
-        </VeeField>
-
-        <button
-          type="submit"
-          :disabled="isSubmitting"
-          class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium
-            text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {{ isSubmitting ? 'Создание...' : 'Создать аккаунт' }}
-        </button>
-      </form>
-
-      <p class="text-center text-sm text-slate-600">
-        Уже есть аккаунт?
-        <RouterLink to="/login" class="text-violet-600 hover:text-violet-700 hover:underline">Войти</RouterLink>
-      </p>
-    </div>
-  </div>
-</template>

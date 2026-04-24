@@ -9,6 +9,7 @@ alwaysApply: false
 ## Структура модуля NestJS
 
 Каждый модуль — папка `src/<module>/`:
+
 ```
 <module>/
   <module>.module.ts       — @Module() декоратор
@@ -24,8 +25,8 @@ alwaysApply: false
 Drizzle не инжектируется через NestJS DI по классу — используется Symbol:
 
 ```typescript
-import { Inject, Injectable } from '@nestjs/common';
-import { DRIZZLE, type DrizzleDb } from '../database/database.module.js';
+import { Inject, Injectable } from '@nestjs/common'
+import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
 
 @Injectable()
 export class SomeService {
@@ -38,20 +39,22 @@ export class SomeService {
 Все таблицы в `src/database/schema/*.ts`, экспортируются через `src/database/schema/index.ts`.
 
 Паттерн таблицы:
+
 ```typescript
-import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
 
 export const things = pgTable('things', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+})
 
-export type Thing = typeof things.$inferSelect;
-export type NewThing = typeof things.$inferInsert;
+export type Thing = typeof things.$inferSelect
+export type NewThing = typeof things.$inferInsert
 ```
 
 После изменения схемы:
+
 ```bash
 pnpm --filter api drizzle-kit push   # применить к dev БД
 pnpm --filter api drizzle-kit generate  # сгенерировать migration SQL
@@ -73,7 +76,17 @@ const secret = this.configService.getOrThrow('JWT_ACCESS_SECRET');
 
 **URL внешних и внутренних сервисов** (`FRONTEND_URL`, `HH_API_BASE`, `GEMINI_API_BASE`, `OPENROUTER_API_BASE`, `GROQ_API_BASE` и т.д.) — только из `ConfigService` / схемы с zod-дефолтами, не строковые литералы в сервисах.
 
-**LLM:** провайдер и модель — из **`POST /search/run`** + `settings` (`LlmRuntimeContext`); ключи только в env. **`GET /llm/status`** возвращает статус каждого из `gemini | openrouter | groq`. **Gemini** — Generative Language API; **openrouter** / **groq** — OpenAI-compatible в `LlmService`.
+**LLM:** провайдер и модель — из **`POST /search/run`** + `settings` (`LlmRuntimeContext`); ключи только в env. **`GET /llm/status`** возвращает статус каждого из `gemini | openrouter | groq`. **Gemini** — Generative Language API; **openrouter** / **groq** — OpenAI-compatible в `LlmService`. Таймаут вызовов скоринга/писем — **`LLM_REQUEST_TIMEOUT_MS`** (`AbortSignal.timeout`). Ошибки провайдера: коды `LLM_TIMEOUT` (504), `LLM_RATE_LIMIT` (429), `LLM_UPSTREAM` / `LLM_NETWORK` / `LLM_EMPTY` (502) и др. в `HttpException`.
+
+## Ошибки и корреляция
+
+- Каждый запрос получает **`X-Request-Id`** (или клиентский заголовок сохраняется); то же значение в JSON ошибок как **`requestId`**.
+- Глобальный **`AllExceptionsFilter`** дописывает `requestId` к ответам `HttpException` и к 500-м «необработанным» исключениям.
+
+## Swagger / OpenAPI
+
+- UI: **`GET /docs`** (без глобального префикса `/api`). Спецификация: **`GET /docs-json`**. Сохранение в файл: **`pnpm --filter api run openapi:export`** (из `apps/api`, API должен слушать порт; при необходимости задать **`OPENAPI_URL`**).
+- Схемы request body генерируются из zod через `nestjs-zod`: `createZodDto(ZodSchema)` → `@ApiBody({ type: Dto })`. Документ дочищается `cleanupOpenApiDoc()` из `nestjs-zod` в `swagger-document.ts`.
 
 ## Авторизация
 
@@ -87,6 +100,7 @@ const secret = this.configService.getOrThrow('JWT_ACCESS_SECRET');
 Zod-схемы живут в `packages/shared/src/schemas/`.
 
 В контроллерах: парсить `@Body() body: unknown` через zod напрямую:
+
 ```typescript
 @Post('example')
 async create(@Body() body: unknown) {
@@ -100,17 +114,18 @@ async create(@Body() body: unknown) {
 ## Логирование
 
 Использовать `Logger` из `@nestjs/common` (не из nestjs-pino напрямую):
+
 ```typescript
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common'
 
 @Injectable()
 export class MyService {
-  private readonly logger = new Logger(MyService.name);
+  private readonly logger = new Logger(MyService.name)
 
   doSomething() {
-    this.logger.log('Выполняю действие');
-    this.logger.debug('Детали отладки');
-    this.logger.error('Ошибка', error.stack);
+    this.logger.log('Выполняю действие')
+    this.logger.debug('Детали отладки')
+    this.logger.error('Ошибка', error.stack)
   }
 }
 ```

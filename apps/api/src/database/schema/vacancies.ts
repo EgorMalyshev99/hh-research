@@ -1,5 +1,6 @@
-import { boolean, integer, jsonb, pgTable, real, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import type { Vacancy } from '@repo/shared'
+import { boolean, integer, jsonb, pgTable, real, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+
 import { users } from './users.js'
 
 export const vacancies = pgTable(

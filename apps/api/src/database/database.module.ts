@@ -2,8 +2,10 @@ import { Global, Module } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import * as schema from './schema/index.js'
+
 import type { AppConfig } from '../config/config.schema.js'
+
+import * as schema from './schema/index.js'
 
 export const DRIZZLE = Symbol('DRIZZLE')
 

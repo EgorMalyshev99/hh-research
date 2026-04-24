@@ -1,23 +1,14 @@
-import boundaries from "eslint-plugin-boundaries";
-import pluginVue from "eslint-plugin-vue";
-import globals from "globals";
-import vueParser from "vue-eslint-parser";
-import tseslint from "typescript-eslint";
+import boundaries from 'eslint-plugin-boundaries'
+import pluginVue from 'eslint-plugin-vue'
+import eslintConfigPrettier from 'eslint-config-prettier'
+import globals from 'globals'
+import vueParser from 'vue-eslint-parser'
+import tseslint from 'typescript-eslint'
 
-import { config as baseConfig } from "./base.js";
+import { config as baseConfig } from './base.js'
+import { typeAwareTypeScriptEslintRules } from './type-aware-ts.js'
 
-/**
- * Слои FSD в порядке сверху вниз.
- * Импорты разрешены только «вниз по стеку» (app → pages → ... → shared).
- */
-const FSD_LAYERS = [
-  "app",
-  "pages",
-  "widgets",
-  "features",
-  "entities",
-  "shared",
-];
+const FSD_LAYERS = ['app', 'pages', 'widgets', 'features', 'entities', 'shared']
 
 /**
  * ESLint пресет для Vue 3 + FSD приложения (apps/web).
@@ -26,67 +17,85 @@ const FSD_LAYERS = [
  * @returns {import("eslint").Linter.Config[]}
  */
 export function config(options = {}) {
-  const fsdRoot = options.fsdRoot ?? "src";
+  const fsdRoot = options.fsdRoot ?? 'src'
 
   return [
     ...baseConfig,
-    ...pluginVue.configs["flat/recommended"],
+    ...pluginVue.configs['flat/recommended'],
     {
-      files: ["**/*.vue", "**/*.ts", "**/*.js"],
+      files: ['**/*.ts'],
       languageOptions: {
-        parser: vueParser,
+        parser: tseslint.parser,
         parserOptions: {
-          parser: tseslint.parser,
-          sourceType: "module",
-          ecmaFeatures: { jsx: false },
+          project: true,
         },
         globals: {
           ...globals.browser,
         },
       },
       rules: {
-        // Vue 3 best practices
-        "vue/component-api-style": ["error", ["script-setup"]],
-        "vue/define-macros-order": [
-          "error",
-          {
-            order: [
-              "defineOptions",
-              "defineProps",
-              "defineEmits",
-              "defineSlots",
-            ],
-          },
-        ],
-        "vue/block-lang": ["error", { script: { lang: "ts" } }],
-        "vue/no-undef-components": "error",
-        "vue/no-unused-refs": "error",
-        "vue/padding-line-between-blocks": "error",
+        ...typeAwareTypeScriptEslintRules,
       },
     },
     {
-      // FSD: eslint-plugin-boundaries — запрет импортов «снизу вверх»
+      files: ['**/*.vue'],
+      languageOptions: {
+        parser: vueParser,
+        parserOptions: {
+          parser: tseslint.parser,
+          projectService: true,
+          extraFileExtensions: ['.vue'],
+        },
+        globals: {
+          ...globals.browser,
+        },
+      },
+      rules: {
+        ...typeAwareTypeScriptEslintRules,
+        'vue/max-attributes-per-line': 'off',
+        'vue/component-api-style': ['error', ['script-setup']],
+        'vue/define-macros-order': [
+          'error',
+          {
+            order: ['defineOptions', 'defineProps', 'defineEmits', 'defineSlots'],
+          },
+        ],
+        'vue/block-order': [
+          'error',
+          {
+            order: ['template', 'script', 'style'],
+          },
+        ],
+        'vue/block-lang': ['error', { script: { lang: 'ts' } }],
+        'vue/no-undef-components': 'error',
+        'vue/no-unused-refs': 'error',
+        'vue/padding-line-between-blocks': 'error',
+      },
+    },
+    {
       files: [`${fsdRoot}/**/*.{ts,vue}`],
       plugins: { boundaries },
       settings: {
-        "boundaries/elements": FSD_LAYERS.map((layer) => ({
+        'boundaries/elements': FSD_LAYERS.map((layer) => ({
           type: layer,
           pattern: `${fsdRoot}/${layer}/*`,
         })),
-        "boundaries/ignore": [`${fsdRoot}/shared/**`],
+        'boundaries/ignore': [`${fsdRoot}/shared/**`, `${fsdRoot}/components/**`, `${fsdRoot}/lib/**`],
+        'boundaries/dependency-nodes': ['import'],
       },
       rules: {
-        "boundaries/element-types": [
-          "error",
+        'boundaries/dependencies': [
+          'error',
           {
-            default: "disallow",
+            default: 'disallow',
             rules: FSD_LAYERS.map((layer, index) => ({
-              from: layer,
-              allow: FSD_LAYERS.slice(index + 1), // разрешён импорт только из нижележащих слоёв
+              from: { type: layer },
+              allow: FSD_LAYERS.slice(index + 1).map((t) => ({ to: { type: t } })),
             })),
           },
         ],
       },
     },
-  ];
+    eslintConfigPrettier,
+  ]
 }

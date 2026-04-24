@@ -1,12 +1,16 @@
 import { z } from 'zod'
 import { LlmProviderIdSchema } from './llm'
 
+export const ScheduleFilterSchema = z.enum(['remote', 'office', 'hybrid', 'flexible'])
+
 export const SearchConfigSchema = z.object({
   query: z.string().min(1),
   area: z.string().optional(),
   salary: z.number().optional(),
   experience: z.enum(['noExperience', 'between1And3', 'between3And6', 'moreThan6']).optional(),
   schedule: z.array(z.enum(['remote', 'fullDay', 'shift', 'flexible'])).optional(),
+  /** UI-уровневый фильтр формата работы; имеет приоритет над schedule */
+  scheduleFilter: z.array(ScheduleFilterSchema).optional(),
   onlyWithSalary: z.boolean().default(false),
   maxResults: z.number().min(1).max(200).default(100),
   /** Порог для isRelevant и для генерации письма (0–100) */
@@ -46,6 +50,7 @@ export const RunSearchBodySchema = SearchConfigSchema.partial().extend({
   llmModel: z.string().min(1).optional(),
 })
 
+export type ScheduleFilter = z.infer<typeof ScheduleFilterSchema>
 export type SearchConfig = z.infer<typeof SearchConfigSchema>
 export type CoverLetterConfig = z.infer<typeof CoverLetterConfigSchema>
 export type Settings = z.infer<typeof SettingsSchema>

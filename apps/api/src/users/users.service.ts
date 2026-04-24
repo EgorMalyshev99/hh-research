@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { eq } from 'drizzle-orm'
+
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
 import { users, type NewUser, type User } from '../database/schema/index.js'
 

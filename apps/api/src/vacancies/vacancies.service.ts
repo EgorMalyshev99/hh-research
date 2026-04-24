@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common'
-import { and, desc, eq } from 'drizzle-orm'
 import type { Vacancy } from '@repo/shared'
+import { and, desc, eq } from 'drizzle-orm'
+
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
 import { vacancies, type VacancyRecord } from '../database/schema/index.js'
 

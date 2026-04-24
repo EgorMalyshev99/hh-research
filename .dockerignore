@@ -1,0 +1,11 @@
+node_modules
+.turbo
+.git
+.cursor
+dist
+build
+out
+coverage
+*.log
+apps/*/.env
+apps/*/.env.local

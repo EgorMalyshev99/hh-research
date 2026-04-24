@@ -1,6 +1,7 @@
+import type { LoginDto, RegisterDto } from '@repo/shared'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { LoginDto, RegisterDto } from '@repo/shared'
+
 import { authApi } from '../api/auth.api'
 
 export const useAuthStore = defineStore('auth', () => {

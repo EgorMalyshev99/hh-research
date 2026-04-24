@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import type { SearchConfig, Vacancy } from '@repo/shared'
+import type { ScheduleFilter, SearchConfig, Vacancy } from '@repo/shared'
+
 import type { AppConfig } from '../config/config.schema.js'
+
+import { IT_PROFESSIONAL_ROLE_IDS } from './hh.constants.js'
 import { mapHhVacancyToVacancy, passesHhItemFilters } from './hh.mapper.js'
 
 const USER_AGENT = 'hh-assistant/1.0 (local; contact: dev@localhost)'
@@ -40,16 +43,18 @@ export class HhService {
         ...(config.onlyWithSalary && { only_with_salary: 'true' }),
       })
 
-      if (config.schedule?.length) {
-        config.schedule.forEach((s) => params.append('schedule', s))
-      }
+      const apiSchedule = config.scheduleFilter?.length
+        ? mapScheduleFilterToApi(config.scheduleFilter)
+        : (config.schedule ?? [])
+      apiSchedule.forEach((s) => params.append('schedule', s))
+
+      IT_PROFESSIONAL_ROLE_IDS.forEach((id) => params.append('professional_role', id))
 
       this.logger.debug(`Запрос hh.ru: страница ${page + 1}`)
 
-      const response = await this.fetchWithRetry(
-        `${this.hhApiBase}/vacancies?${params.toString()}`,
-        { headers: { 'User-Agent': USER_AGENT } },
-      )
+      const response = await this.fetchWithRetry(`${this.hhApiBase}/vacancies?${params.toString()}`, {
+        headers: { 'User-Agent': USER_AGENT },
+      })
 
       if (!response.ok) {
         this.logger.error(`hh.ru API вернул ${response.status}: ${await response.text()}`)
@@ -57,7 +62,7 @@ export class HhService {
       }
 
       const data = (await response.json()) as {
-        items: Array<Record<string, unknown>>
+        items: Record<string, unknown>[]
         pages: number
         found: number
       }
@@ -89,6 +94,32 @@ export class HhService {
       throw new Error(`hh.ru GET /vacancies/${id}: ${response.status}`)
     }
     return (await response.json()) as Record<string, unknown>
+  }
+
+  /** Плоский список регионов из GET /areas (кешируется в памяти) */
+  private areasCache: { id: string; name: string; parentId: string | null }[] | null = null
+
+  async getAreas(): Promise<{ id: string; name: string; parentId: string | null }[]> {
+    if (this.areasCache) return this.areasCache
+
+    const response = await this.fetchWithRetry(`${this.hhApiBase}/areas`, {
+      headers: { 'User-Agent': USER_AGENT },
+    })
+    if (!response.ok) {
+      throw new Error(`hh.ru GET /areas: ${response.status}`)
+    }
+    const tree = (await response.json()) as HhAreaNode[]
+    const flat: { id: string; name: string; parentId: string | null }[] = []
+
+    const walk = (nodes: HhAreaNode[], parentId: string | null) => {
+      for (const n of nodes) {
+        flat.push({ id: String(n.id), name: String(n.name), parentId })
+        if (n.areas?.length) walk(n.areas, String(n.id))
+      }
+    }
+    walk(tree, null)
+    this.areasCache = flat
+    return flat
   }
 
   /** Текст вакансии для LLM: название + сниппет или полное описание */
@@ -135,5 +166,24 @@ export class HhService {
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function mapScheduleFilterToApi(filters: ScheduleFilter[]): string[] {
+  const set = new Set<string>()
+  for (const f of filters) {
+    if (f === 'remote') set.add('remote')
+    if (f === 'office' || f === 'hybrid') set.add('fullDay')
+    if (f === 'flexible') set.add('flexible')
+  }
+  return [...set]
+}
+
+interface HhAreaNode {
+  id: string | number
+  name: string
+  areas?: HhAreaNode[]
 }

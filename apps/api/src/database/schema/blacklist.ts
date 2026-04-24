@@ -1,4 +1,5 @@
 import { integer, pgTable, serial, timestamp, varchar } from 'drizzle-orm/pg-core'
+
 import { users } from './users.js'
 
 export const blacklist = pgTable('blacklist', {

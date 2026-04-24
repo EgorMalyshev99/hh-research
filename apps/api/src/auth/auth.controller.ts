@@ -1,20 +1,26 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common'
-import type { Request, Response } from 'express'
+import { ApiBody, ApiTags } from '@nestjs/swagger'
 import { LoginSchema, RegisterSchema } from '@repo/shared'
+import type { Request, Response } from 'express'
+
 import { Public } from '../common/decorators/public.decorator.js'
-import { AuthService } from './auth.service.js'
-import type { JwtPayload } from './strategies/jwt.strategy.js'
 import { UsersService } from '../users/users.service.js'
 
+import { AuthService } from './auth.service.js'
+import { LoginBodyDto, RegisterBodyDto } from './dto/auth.dto.js'
+import type { JwtPayload } from './strategies/jwt.strategy.js'
+
+@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private authService: AuthService,
-    private usersService: UsersService,
+    private usersService: UsersService
   ) {}
 
   @Public()
   @Post('register')
+  @ApiBody({ type: RegisterBodyDto })
   async register(@Body() body: unknown, @Res({ passthrough: true }) res: Response) {
     const dto = RegisterSchema.parse(body)
     const tokens = await this.authService.register(dto)
@@ -25,6 +31,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ApiBody({ type: LoginBodyDto })
   async login(@Body() body: unknown, @Res({ passthrough: true }) res: Response) {
     const dto = LoginSchema.parse(body)
     const tokens = await this.authService.login(dto)

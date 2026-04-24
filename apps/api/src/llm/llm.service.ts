@@ -1,23 +1,30 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import type { LlmProviderId, LlmProvidersStatus, LlmRuntimeContext, LlmStatus } from '@repo/shared'
-import { LlmScoreResponseSchema, type LlmScoreResponse } from '@repo/shared'
+import {
+  LlmScoreResponseSchema,
+  type LlmProviderId,
+  type LlmProvidersStatus,
+  type LlmRuntimeContext,
+  type LlmScoreResponse,
+  type LlmStatus,
+} from '@repo/shared'
+
 import type { AppConfig } from '../config/config.schema.js'
+
 import { buildCoverLetterPrompt, buildScorePrompt } from './prompts/templates.js'
 
 const RESUME_MAX_CHARS = 32_000
 
 const ALL_PROVIDERS: LlmProviderId[] = ['gemini', 'openrouter', 'groq']
 
-/** Groq и OpenRouter — OpenAI-совместимый `/v1/models` и `/v1/chat/completions`. */
 function isOpenAiCompatible(provider: LlmProviderId): provider is 'groq' | 'openrouter' {
   return provider === 'groq' || provider === 'openrouter'
 }
 
-type GeminiGenerateResponse = {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> }
-  }>
+interface GeminiGenerateResponse {
+  candidates?: {
+    content?: { parts?: { text?: string }[] }
+  }[]
 }
 
 @Injectable()
@@ -29,7 +36,7 @@ export class LlmService {
   /** Доступность всех провайдеров (для UI при выборе модели). */
   async getProvidersStatus(timeoutMs = 4000): Promise<LlmProvidersStatus> {
     const entries = await Promise.all(
-      ALL_PROVIDERS.map(async (p) => [p, await this.checkProvider(p, timeoutMs)] as const),
+      ALL_PROVIDERS.map(async (p) => [p, await this.checkProvider(p, timeoutMs)] as const)
     )
     return Object.fromEntries(entries) as LlmProvidersStatus
   }
@@ -84,16 +91,12 @@ export class LlmService {
     if (!st.ok) {
       throw new HttpException(
         { code: 'LLM_UNAVAILABLE' as const, message: st.message ?? 'LLM недоступен' },
-        HttpStatus.SERVICE_UNAVAILABLE,
+        HttpStatus.SERVICE_UNAVAILABLE
       )
     }
   }
 
-  async scoreVacancy(
-    vacancyText: string,
-    resumeMarkdown: string,
-    ctx: LlmRuntimeContext,
-  ): Promise<LlmScoreResponse> {
+  async scoreVacancy(vacancyText: string, resumeMarkdown: string, ctx: LlmRuntimeContext): Promise<LlmScoreResponse> {
     const resume = this.truncateResume(resumeMarkdown)
     const prompt = buildScorePrompt(resume, vacancyText)
     this.logger.debug(`Скоринг через ${ctx.provider}/${ctx.model}`)
@@ -105,7 +108,7 @@ export class LlmService {
     vacancyText: string,
     resumeMarkdown: string,
     letterCfg: { tone: string; length: string; language: string },
-    ctx: LlmRuntimeContext,
+    ctx: LlmRuntimeContext
   ): Promise<string> {
     const resume = this.truncateResume(resumeMarkdown)
     const prompt = buildCoverLetterPrompt(resume, vacancyText, letterCfg)
@@ -148,10 +151,44 @@ export class LlmService {
 
   private truncateResume(markdown: string): string {
     if (markdown.length <= RESUME_MAX_CHARS) return markdown
-    this.logger.warn(
-      `Резюме обрезано с ${markdown.length} до ${RESUME_MAX_CHARS} символов (~лимит токенов)`,
-    )
+    this.logger.warn(`Резюме обрезано с ${markdown.length} до ${RESUME_MAX_CHARS} символов (~лимит токенов)`)
     return markdown.slice(0, RESUME_MAX_CHARS)
+  }
+
+  private llmAbortSignal(): AbortSignal {
+    const ms = this.configService.getOrThrow('LLM_REQUEST_TIMEOUT_MS', { infer: true })
+    return AbortSignal.timeout(ms)
+  }
+
+  private throwIfLlmUpstreamError(response: Response, providerLabel: string): void {
+    if (response.ok) return
+    if (response.status === 429) {
+      throw new HttpException(
+        { code: 'LLM_RATE_LIMIT' as const, message: `${providerLabel}: HTTP 429` },
+        HttpStatus.TOO_MANY_REQUESTS
+      )
+    }
+    throw new HttpException(
+      { code: 'LLM_UPSTREAM' as const, message: `${providerLabel}: HTTP ${response.status}` },
+      HttpStatus.BAD_GATEWAY
+    )
+  }
+
+  private rethrowLlmFetchFailure(e: unknown, providerLabel: string): never {
+    if (e instanceof HttpException) {
+      throw e
+    }
+    if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError')) {
+      throw new HttpException(
+        { code: 'LLM_TIMEOUT' as const, message: 'Превышено время ожидания ответа LLM' },
+        HttpStatus.GATEWAY_TIMEOUT
+      )
+    }
+    const message = e instanceof Error ? e.message : String(e)
+    throw new HttpException(
+      { code: 'LLM_NETWORK' as const, message: `${providerLabel}: ${message}` },
+      HttpStatus.BAD_GATEWAY
+    )
   }
 
   private async callLlm(prompt: string, provider: LlmProviderId, model: string): Promise<string> {
@@ -161,65 +198,86 @@ export class LlmService {
     if (isOpenAiCompatible(provider)) {
       return this.callOpenAiCompatibleChat(provider, prompt, model)
     }
-    throw new Error(`Неизвестный LLM провайдер: ${provider}`)
+    throw new HttpException(
+      { code: 'LLM_BAD_PROVIDER' as const, message: `Неизвестный LLM провайдер: ${provider}` },
+      HttpStatus.BAD_REQUEST
+    )
   }
 
   private async callGemini(prompt: string, model: string): Promise<string> {
     const apiKey = this.configService.getOrThrow('GEMINI_API_KEY')
     const base = this.trimBase(this.configService.getOrThrow('GEMINI_API_BASE'))
     const url = `${base}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3 },
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`)
+    let response: Response
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: this.llmAbortSignal(),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3 },
+        }),
+      })
+    } catch (e) {
+      this.rethrowLlmFetchFailure(e, 'Gemini')
     }
+
+    this.throwIfLlmUpstreamError(response, 'Gemini')
 
     const data = (await response.json()) as GeminiGenerateResponse
     const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
     if (!text.trim()) {
-      throw new Error('Gemini вернул пустой ответ')
+      throw new HttpException(
+        { code: 'LLM_EMPTY' as const, message: 'Gemini вернул пустой ответ' },
+        HttpStatus.BAD_GATEWAY
+      )
     }
     return text
   }
 
-  /** OpenAI-совместимые `GET /models` и `POST /chat/completions` (Groq, OpenRouter). */
   private async callOpenAiCompatibleChat(
     provider: 'groq' | 'openrouter',
     prompt: string,
-    model: string,
+    model: string
   ): Promise<string> {
     const cfg = this.getOpenAiCompatibleConfig(provider)
     if (!cfg.apiKey) {
-      throw new Error(`${cfg.keyEnvName} не задан`)
+      throw new HttpException(
+        { code: 'LLM_CONFIG' as const, message: `${cfg.keyEnvName} не задан` },
+        HttpStatus.SERVICE_UNAVAILABLE
+      )
     }
-    const response = await fetch(`${cfg.base}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...cfg.extraHeaders,
-        Authorization: `Bearer ${cfg.apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`${provider} API error: ${response.status}`)
+    let response: Response
+    try {
+      response = await fetch(`${cfg.base}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...cfg.extraHeaders,
+          Authorization: `Bearer ${cfg.apiKey}`,
+        },
+        signal: this.llmAbortSignal(),
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+        }),
+      })
+    } catch (e) {
+      this.rethrowLlmFetchFailure(e, provider)
     }
 
-    const data = (await response.json()) as { choices: Array<{ message: { content: string } }> }
+    this.throwIfLlmUpstreamError(response, provider)
+
+    const data = (await response.json()) as { choices: { message: { content: string } }[] }
     const content = data.choices[0]?.message.content
-    if (!content) throw new Error(`${provider} вернул пустой ответ`)
+    if (!content) {
+      throw new HttpException(
+        { code: 'LLM_EMPTY' as const, message: `${provider} вернул пустой ответ` },
+        HttpStatus.BAD_GATEWAY
+      )
+    }
     return content
   }
 }

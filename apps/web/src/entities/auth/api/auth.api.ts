@@ -1,4 +1,5 @@
 import type { LoginDto, RegisterDto, Tokens } from '@repo/shared'
+
 import { http } from '@/shared/api/http'
 
 export const authApi = {

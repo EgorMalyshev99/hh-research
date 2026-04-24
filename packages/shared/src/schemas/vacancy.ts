@@ -67,6 +67,24 @@ export const LlmScoreResponseSchema = z.object({
   isRelevant: z.boolean(),
 })
 
+/** Ответ `GET /api/vacancies` и `GET /api/vacancies/:id` */
+export const StoredVacancyRowSchema = z.object({
+  id: z.number(),
+  hhId: z.string(),
+  data: VacancySchema,
+  score: z.number().nullable(),
+  scoreReason: z.string().nullable(),
+  isRelevant: z.boolean().nullable(),
+  coverLetter: z.string().nullable(),
+  processedAt: z.string().datetime().nullable(),
+  isViewed: z.boolean(),
+  isApplied: z.boolean(),
+  createdAt: z.string().datetime(),
+})
+
+export const StoredVacancyListSchema = z.array(StoredVacancyRowSchema)
+
 export type Vacancy = z.infer<typeof VacancySchema>
 export type ScoredVacancy = z.infer<typeof ScoredVacancySchema>
 export type LlmScoreResponse = z.infer<typeof LlmScoreResponseSchema>
+export type StoredVacancyRow = z.infer<typeof StoredVacancyRowSchema>

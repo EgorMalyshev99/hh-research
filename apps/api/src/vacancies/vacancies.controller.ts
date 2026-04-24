@@ -1,17 +1,14 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Req,
-} from '@nestjs/common'
+import { Controller, Delete, Get, Param, ParseIntPipe, Patch, Req } from '@nestjs/common'
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
 import type { Request } from 'express'
+
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
 import type { VacancyRecord } from '../database/schema/index.js'
+
 import { VacanciesService } from './vacancies.service.js'
 
+@ApiTags('vacancies')
+@ApiBearerAuth('access-token')
 @Controller('vacancies')
 export class VacanciesController {
   constructor(private vacanciesService: VacanciesService) {}

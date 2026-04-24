@@ -1,11 +1,12 @@
-import js from "@eslint/js";
-import eslintConfigPrettier from "eslint-config-prettier";
-import importX from "eslint-plugin-import-x";
-import tseslint from "typescript-eslint";
+import js from '@eslint/js'
+import eslintConfigPrettier from 'eslint-config-prettier'
+import importX from 'eslint-plugin-import-x'
+import tseslint from 'typescript-eslint'
 
 /**
  * Базовый пресет ESLint для всех пакетов монорепо.
- * Используется как основа для nest.js и vue.js пресетов.
+ * Type-aware правила (no-floating-promises, …) — в пресетах `vue` / `nest` с
+ * `parserOptions.project` / `projectService`, см. `type-aware-ts.js`.
  *
  * @type {import("eslint").Linter.Config[]}
  */
@@ -15,46 +16,28 @@ export const config = [
   ...tseslint.configs.stylistic,
   {
     plugins: {
-      "import-x": importX,
+      'import-x': importX,
     },
     rules: {
       // TypeScript
-      "@typescript-eslint/consistent-type-imports": [
-        "error",
-        { prefer: "type-imports" },
-      ],
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_" },
-      ],
+      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
 
       // Imports
-      "import-x/order": [
-        "error",
+      'import-x/order': [
+        'error',
         {
-          groups: [
-            "builtin",
-            "external",
-            "internal",
-            "parent",
-            "sibling",
-            "index",
-          ],
-          "newlines-between": "always",
-          alphabetize: { order: "asc" },
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
+          'newlines-between': 'always',
+          alphabetize: { order: 'asc' },
         },
       ],
-      "import-x/no-cycle": "error",
-      "import-x/no-duplicates": "error",
-
-      // Promises
-      "promise/always-return": "error",
-      "promise/no-return-wrap": "error",
-      "promise/param-names": "error",
+      'import-x/no-cycle': 'error',
+      'import-x/no-duplicates': 'error',
     },
   },
   eslintConfigPrettier,
   {
-    ignores: ["dist/**", "node_modules/**", "*.d.ts"],
+    ignores: ['dist/**', 'node_modules/**', '*.d.ts'],
   },
-];
+]

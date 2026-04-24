@@ -1,5 +1,6 @@
-import { integer, jsonb, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
 import type { CoverLetterConfig, SearchConfig } from '@repo/shared'
+import { integer, jsonb, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
+
 import { users } from './users.js'
 
 export const settings = pgTable('settings', {

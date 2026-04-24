@@ -1,7 +1,8 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
-import { eq } from 'drizzle-orm'
 import type { CoverLetterConfig, SearchConfig, UpdateSettingsDto } from '@repo/shared'
 import { CoverLetterConfigSchema, SearchConfigSchema } from '@repo/shared'
+import { eq } from 'drizzle-orm'
+
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
 import { settings, type Settings } from '../database/schema/index.js'
 
