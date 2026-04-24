@@ -2,7 +2,7 @@ import axios, { type AxiosError } from 'axios'
 
 import { API_BASE_URL } from '@/shared/config/env'
 
-export const http = axios.create({
+export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
@@ -10,7 +10,7 @@ export const http = axios.create({
   },
 })
 
-http.interceptors.request.use((config) => {
+api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -18,7 +18,7 @@ http.interceptors.request.use((config) => {
   return config
 })
 
-http.interceptors.response.use(
+api.interceptors.response.use(
   (response) => response,
   async (error: unknown) => {
     if (!axios.isAxiosError(error) || !error.config) {
@@ -31,12 +31,12 @@ http.interceptors.response.use(
 
     if (error.response?.status === 401 && !isRefreshRequest) {
       try {
-        const { data } = await http.post<{ accessToken: string }>('/auth/refresh')
+        const { data } = await api.post<{ accessToken: string }>('/auth/refresh')
         localStorage.setItem('access_token', data.accessToken)
         if (cfg.headers) {
           cfg.headers.Authorization = `Bearer ${data.accessToken}`
         }
-        return http.request(cfg)
+        return api.request(cfg)
       } catch {
         localStorage.removeItem('access_token')
         window.location.href = '/login'

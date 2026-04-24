@@ -1,1 +1,1 @@
-export { useStatsQuery } from './model/useStatsQuery'
+export { fetchVacancyStats, useStatsQuery } from './api/stats.api'

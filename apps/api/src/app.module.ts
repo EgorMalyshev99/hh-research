@@ -11,8 +11,9 @@ import { DatabaseModule } from './database/database.module.js'
 import { HhModule } from './hh/hh.module.js'
 import { HistoryModule } from './history/history.module.js'
 import { LlmModule } from './llm/llm.module.js'
+import { ResumesModule } from './resumes/resumes.module.js'
 import { SearchModule } from './search/search.module.js'
-import { SettingsModule } from './settings/settings.module.js'
+import { TelegramModule } from './telegram/telegram.module.js'
 import { UsersModule } from './users/users.module.js'
 import { VacanciesModule } from './vacancies/vacancies.module.js'
 
@@ -33,13 +34,14 @@ import { VacanciesModule } from './vacancies/vacancies.module.js'
       },
     }),
     DatabaseModule,
+    HhModule,
     AuthModule,
     UsersModule,
     VacanciesModule,
-    HhModule,
+    ResumesModule,
     LlmModule,
+    TelegramModule,
     SearchModule,
-    SettingsModule,
     BlacklistModule,
     HistoryModule,
   ],

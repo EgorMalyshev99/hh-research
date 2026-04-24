@@ -9,21 +9,19 @@ export const configSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   FRONTEND_URL: z.string().url('FRONTEND_URL должен быть корректным URL'),
-  /** База REST hh.ru (без завершающего /) */
   HH_API_BASE: z.string().url().default('https://api.hh.ru'),
-  /** Google AI Studio / Generative Language API (без завершающего /), например …/v1beta */
+  HH_USER_AGENT: z.string().min(1).default('hh-research-api/1.0 (local-dev)'),
   GEMINI_API_BASE: z.string().url().default('https://generativelanguage.googleapis.com/v1beta'),
   GEMINI_API_KEY: z.string().optional(),
-  /** OpenRouter: OpenAI-совместимый префикс до /v1 включительно */
   OPENROUTER_API_BASE: z.string().url().default('https://openrouter.ai/api/v1'),
   OPENROUTER_API_KEY: z.string().optional(),
-  /** Опционально для OpenRouter (`HTTP-Referer`) */
   OPENROUTER_HTTP_REFERER: z.string().url().optional(),
-  /** Groq: OpenAI-совместимый префикс до /v1 включительно */
   GROQ_API_BASE: z.string().url().default('https://api.groq.com/openai/v1'),
   GROQ_API_KEY: z.string().optional(),
-  /** Таймаут HTTP к LLM-провайдеру (скоринг, письма), мс */
   LLM_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
+  TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
+  TELEGRAM_ERRORS_CHAT_ID: z.string().min(1).optional(),
+  TELEGRAM_VACANCY_DIGEST_LIMIT: z.coerce.number().int().min(1).max(50).default(20),
 })
 
 export type AppConfig = z.infer<typeof configSchema>

@@ -1,1 +1,1 @@
-export { http } from './http'
+export { api as http } from './http'

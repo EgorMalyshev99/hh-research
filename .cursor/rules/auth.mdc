@@ -11,6 +11,7 @@ alwaysApply: false
 - `JwtAuthGuard` регистрируется в `AuthModule` как `APP_GUARD` (`useExisting: JwtAuthGuard`).
 - Маршруты **без** аутентификации помечаются `@Public()` из `src/common/decorators/public.decorator.ts`.
 - Публичные: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`.
+- Привязка Telegram-пользователя: защищённые `POST /api/auth/telegram/connect` (body с `chatId`) и `POST /api/auth/telegram/disconnect`.
 
 ## Токены
 

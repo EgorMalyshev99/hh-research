@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common'
 import { ApiBody, ApiTags } from '@nestjs/swagger'
 import { LoginSchema, RegisterSchema } from '@repo/shared'
 import type { Request, Response } from 'express'
+import { z } from 'zod'
 
 import { Public } from '../common/decorators/public.decorator.js'
 import { UsersService } from '../users/users.service.js'
@@ -9,6 +10,10 @@ import { UsersService } from '../users/users.service.js'
 import { AuthService } from './auth.service.js'
 import { LoginBodyDto, RegisterBodyDto } from './dto/auth.dto.js'
 import type { JwtPayload } from './strategies/jwt.strategy.js'
+
+const telegramConnectBodySchema = z.object({
+  chatId: z.string().min(1).max(64),
+})
 
 @ApiTags('auth')
 @Controller('auth')
@@ -75,8 +80,27 @@ export class AuthController {
       id: user.id,
       email: user.email,
       name: user.name,
+      role: user.role,
+      telegramConnected: Boolean(user.telegramChatId),
       createdAt: user.createdAt.toISOString(),
     }
+  }
+
+  @Post('telegram/connect')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async connectTelegram(@Req() req: Request & { user: JwtPayload }, @Body() body: unknown) {
+    const parsed = telegramConnectBodySchema.safeParse(body)
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten())
+    }
+    const dto = parsed.data
+    await this.usersService.updateTelegramChatId(req.user.sub, dto.chatId.trim())
+  }
+
+  @Post('telegram/disconnect')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async disconnectTelegram(@Req() req: Request & { user: JwtPayload }) {
+    await this.usersService.updateTelegramChatId(req.user.sub, null)
   }
 
   private setRefreshCookie(res: Response, refreshToken: string) {

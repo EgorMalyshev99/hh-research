@@ -7,6 +7,11 @@ export const useSearchStore = defineStore('search', () => {
   const scheduleFilter = ref<ScheduleFilter[]>([])
   /** Пустая строка = все регионы */
   const area = ref('')
+  /** Пустая строка = любой опыт */
+  const experience = ref('')
+  const onlyWithSalary = ref(false)
+  const maxResults = ref(100)
+  const relevanceThreshold = ref(70)
 
-  return { scheduleFilter, area }
+  return { scheduleFilter, area, experience, onlyWithSalary, maxResults, relevanceThreshold }
 })

@@ -4,10 +4,6 @@ export const queryKeys = {
     all: () => [...queryKeys.root, 'llm'] as const,
     status: () => [...queryKeys.llm.all(), 'status'] as const,
   },
-  settings: {
-    all: () => [...queryKeys.root, 'settings'] as const,
-    me: () => [...queryKeys.settings.all(), 'me'] as const,
-  },
   vacancies: {
     all: () => [...queryKeys.root, 'vacancies'] as const,
     list: () => [...queryKeys.vacancies.all(), 'list'] as const,
@@ -27,5 +23,13 @@ export const queryKeys = {
   hh: {
     all: () => [...queryKeys.root, 'hh'] as const,
     areas: () => [...queryKeys.hh.all(), 'areas'] as const,
+  },
+  resumes: {
+    all: () => [...queryKeys.root, 'resumes'] as const,
+    list: () => [...queryKeys.resumes.all(), 'list'] as const,
+  },
+  search: {
+    all: () => [...queryKeys.root, 'search'] as const,
+    status: () => [...queryKeys.search.all(), 'status'] as const,
   },
 }

@@ -1,6 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { routes, handleHotUpdate } from 'vue-router/auto-routes'
 
+import { pinia } from './pinia'
+
+import { useAuthStore } from '@/entities/auth'
+
 const publicPaths = new Set(['/login', '/register'])
 
 export const router = createRouter({
@@ -12,12 +16,24 @@ export const router = createRouter({
   },
 })
 
-router.beforeEach((to) => {
-  const token = localStorage.getItem('access_token')
+router.beforeEach(async (to) => {
+  const authStore = useAuthStore(pinia)
+  const token = authStore.accessToken
   if (!token && !publicPaths.has(to.path)) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
   if (token && publicPaths.has(to.path)) {
+    return { path: '/' }
+  }
+  if (token && !authStore.me) {
+    try {
+      await authStore.fetchMe()
+    } catch {
+      await authStore.logout()
+      return { path: '/login', query: { redirect: to.fullPath } }
+    }
+  }
+  if (to.path === '/analysis' && !authStore.isAdmin) {
     return { path: '/' }
   }
   return true

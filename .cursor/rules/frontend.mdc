@@ -107,7 +107,10 @@ export const vacancyApi = {
 
 - Провайдер: `import { VueQueryPlugin, queryClient } from '@/app/providers/vue-query'` и `app.use(VueQueryPlugin, { queryClient })` в `main.ts` (тот же `queryClient`, что экспортируется из `vue-query.ts`).
 - Ключи запросов — `shared/lib/query-keys.ts` (например `llm.status`, `settings.me`).
-- Обёртки-запросы в `entities/<name>/model/use*Query.ts`, API — `entities/<name>/api/*.api.ts` + zod.
+- API-слой: `1 запрос = 1 файл` в `entities/<name>/api/` (файл содержит сам запрос и связанный `useQuery`/`useMutation`-хук для этого запроса).
+- В Vue-компонентах и страницах всегда деструктурировать результат хука (`data`, `isPending`, `isError`, `mutateAsync` и т.п.), а не хранить целиком объект запроса.
+- `toast` для ошибок мутаций не вызывать в API-хуках; показывать в Vue-компоненте через `watch` за `error` из мутации.
+- В API-запросах и во Vue `script setup` по возможности использовать стрелочные функции.
 
 ## Маршруты и auth
 

@@ -4,13 +4,13 @@ import { z } from 'zod'
 export const SearchStreamEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('progress'),
-    stage: z.enum(['fetch', 'score', 'letter']),
+    stage: z.enum(['fetch', 'score']),
     found: z.number().optional(),
+    skipped: z.number().optional(),
     current: z
       .object({
         id: z.string(),
         name: z.string().optional(),
-        score: z.number().optional(),
       })
       .optional(),
   }),

@@ -36,6 +36,7 @@ packages/typescript-config/ — tsconfig пресеты (base, nestjs, vue)
 ## Переменные окружения
 
 - **Базовые URL и ссылки** не хардкодить в прикладном коде: фронт — `VITE_API_URL` и `apps/web/src/shared/config/env.ts`; API — `FRONTEND_URL`, `HH_API_BASE`, `GEMINI_API_BASE`, `OPENROUTER_API_BASE`, `GROQ_API_BASE`, **`LLM_REQUEST_TIMEOUT_MS`** и др. в `apps/api/src/config/config.schema.ts` + `.env.example`.
+- Интеграции уведомлений тоже только через env и `ConfigService`: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ERRORS_CHAT_ID`, `TELEGRAM_VACANCY_DIGEST_LIMIT`.
 - **OpenAPI**: при запущенном API — `GET /docs-json`; в репо: `pnpm --filter api run openapi:export` (опционально `OPENAPI_URL`), файл `apps/api/openapi/openapi.json`.
 - `.env` для API: `apps/api/.env` — **не в корне**; для web: `apps/web/.env` (по необходимости), шаблон — `apps/web/.env.example`.
 - Никогда не коммитить `.env` — только `.env.example`.

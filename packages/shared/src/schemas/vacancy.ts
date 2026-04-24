@@ -64,8 +64,16 @@ export const ScoredVacancySchema = VacancySchema.extend({
 export const LlmScoreResponseSchema = z.object({
   score: z.number().min(0).max(100),
   reason: z.string(),
-  isRelevant: z.boolean(),
 })
+
+/** Ответ LLM для батч-скоринга вакансий */
+export const LlmBatchScoreItemSchema = z.object({
+  id: z.string(),
+  score: z.number().min(0).max(100),
+  reason: z.string(),
+})
+
+export const LlmBatchScoreResponseSchema = z.array(LlmBatchScoreItemSchema)
 
 /** Ответ `GET /api/vacancies` и `GET /api/vacancies/:id` */
 export const StoredVacancyRowSchema = z.object({
@@ -87,4 +95,5 @@ export const StoredVacancyListSchema = z.array(StoredVacancyRowSchema)
 export type Vacancy = z.infer<typeof VacancySchema>
 export type ScoredVacancy = z.infer<typeof ScoredVacancySchema>
 export type LlmScoreResponse = z.infer<typeof LlmScoreResponseSchema>
+export type LlmBatchScoreItem = z.infer<typeof LlmBatchScoreItemSchema>
 export type StoredVacancyRow = z.infer<typeof StoredVacancyRowSchema>

@@ -1,2 +1,1 @@
-export { fetchSearchHistory } from './api/history.api'
-export { useHistoryQuery } from './model/useHistoryQuery'
+export { fetchSearchHistory, useHistoryQuery } from './api/history.api'

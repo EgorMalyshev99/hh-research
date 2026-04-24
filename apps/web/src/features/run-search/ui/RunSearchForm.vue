@@ -2,7 +2,7 @@
   <Card>
     <CardHeader>
       <CardTitle>Анализ вакансий</CardTitle>
-      <CardDescription> LLM и запрос для этого запуска. Ключи API задаются на сервере (`.env`). </CardDescription>
+      <CardDescription> LLM и запрос для этого запуска. </CardDescription>
     </CardHeader>
     <CardContent>
       <div v-if="isLoading" class="text-muted-foreground text-sm">Загрузка…</div>
@@ -62,8 +62,23 @@
 
         <SearchControls />
 
-        <Button type="submit" class="w-full" :disabled="formSubmitting || !selectedOk">
-          {{ formSubmitting ? 'Запуск…' : 'Запустить анализ' }}
+        <VeeField v-slot="{ field, errors }" name="resumeId">
+          <Field :data-invalid="!!errors.length">
+            <FieldLabel :for="field.name">Резюме для анализа</FieldLabel>
+            <select
+              :id="field.name"
+              class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+              :value="field.value"
+              @change="setFieldValue('resumeId', Number(($event.target as HTMLSelectElement).value))"
+            >
+              <option v-for="resume in resumes" :key="resume.id" :value="resume.id">{{ resume.title }}</option>
+            </select>
+            <FieldError :errors="errors" />
+          </Field>
+        </VeeField>
+
+        <Button type="submit" class="w-full" :disabled="formSubmitting || !selectedOk || isRunning">
+          {{ formSubmitting ? 'Запуск…' : isRunning ? 'Анализ уже запущен' : 'Запустить анализ' }}
         </Button>
       </form>
 
@@ -76,10 +91,11 @@
 
 <script setup lang="ts">
 import type { LlmProviderId, LlmProvidersStatus, RunSearchBody } from '@repo/shared'
-import { useMutation } from '@tanstack/vue-query'
+import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { toTypedSchema } from '@vee-validate/zod'
 import { Field as VeeField, useForm } from 'vee-validate'
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 import { z } from 'zod'
 
 import SearchControls from '@/components/SearchControls.vue'
@@ -95,11 +111,15 @@ import {
   FieldSet,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { useAuthStore } from '@/entities/auth'
 import { useLlmStatusQuery } from '@/entities/llm'
-import { useSettingsQuery } from '@/entities/settings'
+import { useResumesQuery } from '@/entities/resume'
+import { fetchHhVacancies } from '@/features/run-search/api/fetch-hh-vacancies.api'
+import { useSearchStatusQuery } from '@/features/run-search/api/search-status.api'
 import { useSearchStore } from '@/features/run-search/model/search.store'
-import { http } from '@/shared/api/http'
-import { getApiErrorMessage, showApiMutationErrorToast } from '@/shared/lib/api-error'
+import { api } from '@/shared/api/http'
+import { getApiErrorMessage } from '@/shared/lib/api-error'
+import { queryKeys } from '@/shared/lib/query-keys'
 
 const emit = defineEmits<{
   started: []
@@ -108,6 +128,7 @@ const emit = defineEmits<{
 const RunSearchFormSchema = z.object({
   query: z.string().min(1),
   llmModel: z.string().min(1),
+  resumeId: z.number().int().positive(),
 })
 
 const providers = ['gemini', 'openrouter', 'groq'] as const satisfies readonly LlmProviderId[]
@@ -125,6 +146,8 @@ const defaultModels: Record<LlmProviderId, string> = {
 }
 
 const searchStore = useSearchStore()
+const authStore = useAuthStore()
+const qc = useQueryClient()
 const llmProvider = ref<LlmProviderId>('gemini')
 const runMessage = ref<string | null>(null)
 
@@ -132,57 +155,41 @@ const {
   handleSubmit,
   isSubmitting: formSubmitting,
   setFieldValue,
-  resetForm,
   values,
 } = useForm({
   validationSchema: toTypedSchema(RunSearchFormSchema),
   initialValues: {
     query: '',
     llmModel: defaultModels.gemini,
+    resumeId: 0,
   },
 })
 
-const llmQ = useLlmStatusQuery()
-const settingsQ = useSettingsQuery()
+const { data: llmData, isPending: llmPending, isError: llmError, error: llmErr } = useLlmStatusQuery()
+const { data: resumesData, isPending: resumesPending, isError: resumesError } = useResumesQuery()
+const { data: searchStatusData, isPending: searchStatusPending } = useSearchStatusQuery(authStore.isAdmin)
 
-const statuses = computed<LlmProvidersStatus | null>(() => llmQ.data.value ?? null)
+const statuses = computed<LlmProvidersStatus | null>(() => llmData.value ?? null)
+const resumes = computed(() => resumesData.value ?? [])
+const isRunning = computed(() => searchStatusData.value?.running ?? false)
 
-const isLoading = computed(() => llmQ.isPending.value || settingsQ.isPending.value)
+const isLoading = computed(() => llmPending.value || resumesPending.value || searchStatusPending.value)
 
 const loadError = computed(() => {
-  if (llmQ.isError.value) {
-    const e = llmQ.error.value
+  if (llmError.value) {
+    const e = llmErr.value
     return `LLM: ${e instanceof Error ? e.message : String(e)}`
   }
-  if (settingsQ.isError.value) {
-    const e = settingsQ.error.value
-    return `Настройки: ${e instanceof Error ? e.message : String(e)}`
+  if (resumesError.value) {
+    return 'Не удалось загрузить список резюме'
+  }
+  if (!resumes.value.length) {
+    return 'Добавьте минимум одно резюме в разделе «Резюме»'
   }
   return null
 })
 
 const selectedOk = computed(() => (statuses.value ? statuses.value[llmProvider.value].ok : false) ?? false)
-
-watch(
-  () => settingsQ.data.value,
-  (s) => {
-    if (s == null) return
-    llmProvider.value = s.llmProvider
-    resetForm({
-      values: {
-        query: s.searchConfig?.query ?? '',
-        llmModel: s.llmModel?.trim() ? s.llmModel : defaultModels[s.llmProvider],
-      },
-    })
-    if (s.searchConfig?.scheduleFilter?.length) {
-      searchStore.scheduleFilter = [...s.searchConfig.scheduleFilter]
-    }
-    if (s.searchConfig?.area) {
-      searchStore.area = s.searchConfig.area
-    }
-  },
-  { immediate: true }
-)
 
 watch(llmProvider, (p) => {
   const cur = String(values.llmModel ?? '').trim()
@@ -191,12 +198,31 @@ watch(llmProvider, (p) => {
   }
 })
 
-const runSearchMutation = useMutation({
-  mutationFn: (body: RunSearchBody) => http.post('/search/run', body),
-  onError: (error) => {
-    showApiMutationErrorToast(error, 'Не удалось запустить анализ')
+watch(
+  resumes,
+  (items) => {
+    const firstResume = items.at(0)
+    if (!firstResume) return
+    if (!values.resumeId || !items.some((resume) => resume.id === values.resumeId)) {
+      setFieldValue('resumeId', firstResume.id)
+    }
   },
+  { immediate: true }
+)
+
+const runSearchMutation = useMutation({
+  mutationFn: (body: RunSearchBody) => api.post('/search/run', body),
 })
+
+watch(
+  () => runSearchMutation.error.value,
+  (error) => {
+    if (!error) return
+    toast.error('Не удалось запустить анализ', {
+      description: getApiErrorMessage(error),
+    })
+  }
+)
 
 const onSubmit = handleSubmit(async (vals) => {
   runMessage.value = null
@@ -204,18 +230,44 @@ const onSubmit = handleSubmit(async (vals) => {
     runMessage.value = 'Выбранный провайдер недоступен (проверьте ключи API на сервере).'
     return
   }
+  if (isRunning.value) {
+    runMessage.value = 'Анализ уже запущен. Дождитесь завершения.'
+    return
+  }
   try {
-    await runSearchMutation.mutateAsync({
+    const runBody = {
       query: vals.query,
+      resumeId: vals.resumeId,
       llmProvider: llmProvider.value,
       llmModel: vals.llmModel.trim(),
       ...(searchStore.scheduleFilter.length && { scheduleFilter: searchStore.scheduleFilter }),
       ...(searchStore.area && { area: searchStore.area }),
+      ...(searchStore.experience && { experience: searchStore.experience as RunSearchBody['experience'] }),
+      ...(searchStore.onlyWithSalary && { onlyWithSalary: searchStore.onlyWithSalary }),
+      maxResults: searchStore.maxResults,
+      relevanceThreshold: searchStore.relevanceThreshold,
+    } satisfies RunSearchBody
+
+    // Вакансии грузим только по submit: нет запросов на каждый символ.
+    const vacancies = await fetchHhVacancies(runBody)
+    if (!vacancies.length) {
+      runMessage.value = 'По вашему запросу hh.ru не вернул вакансии.'
+      return
+    }
+
+    await runSearchMutation.mutateAsync({
+      ...runBody,
+      vacancies,
     } satisfies RunSearchBody)
+    await qc.invalidateQueries({ queryKey: queryKeys.search.status() })
     runMessage.value = `Запущено: ${providerLabels[llmProvider.value]} / ${vals.llmModel.trim()}`
     emit('started')
   } catch (e: unknown) {
-    runMessage.value = getApiErrorMessage(e)
+    const message = getApiErrorMessage(e)
+    runMessage.value = message
+    toast.error('Не удалось получить вакансии из hh.ru', {
+      description: message,
+    })
   }
 })
 </script>

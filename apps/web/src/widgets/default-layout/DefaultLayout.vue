@@ -1,28 +1,28 @@
 <template>
-  <div class="min-h-screen bg-slate-100">
+  <div class="bg-background min-h-screen">
     <div class="flex min-h-screen">
-      <aside
-        class="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm"
-        aria-label="Навигация"
-      >
-        <div class="border-b border-slate-200 px-4 py-4">
-          <span class="text-lg font-semibold tracking-tight text-slate-900">hh-research</span>
+      <aside class="bg-card text-card-foreground flex w-56 shrink-0 flex-col border-r" aria-label="Навигация">
+        <div class="space-y-3 border-b px-4 py-4">
+          <span class="block text-lg font-semibold tracking-tight">hh-research</span>
+          <ThemeModeSelect />
         </div>
         <nav class="flex flex-1 flex-col gap-0.5 p-2">
           <RouterLink
             v-for="item in nav"
             :key="item.to"
             :to="item.to"
-            class="rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            :class="isActive(item.to) ? 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200' : ''"
+            class="text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-md px-3 py-2 text-sm
+              font-medium transition-colors"
+            :class="isActive(item.to) ? 'bg-accent text-accent-foreground' : ''"
           >
             {{ item.label }}
           </RouterLink>
         </nav>
-        <div class="border-t border-slate-200 p-2">
+        <div class="border-t p-2">
           <button
             type="button"
-            class="w-full rounded-md px-3 py-2 text-left text-sm text-slate-600 hover:bg-rose-50 hover:text-rose-800"
+            class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive w-full rounded-md px-3 py-2
+              text-left text-sm transition-colors"
             @click="onLogout"
           >
             Выйти
@@ -39,19 +39,22 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/entities/auth'
+import ThemeModeSelect from '@/widgets/default-layout/ThemeModeSelect.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const nav = [
+const nav = computed(() => [
   { to: '/', label: 'Главная' },
-  { to: '/settings', label: 'Настройки' },
+  ...(authStore.isAdmin ? [{ to: '/analysis', label: 'Анализ' }] : []),
+  { to: '/resumes', label: 'Резюме' },
   { to: '/history', label: 'История' },
-] as const
+])
 
 function isActive(to: string) {
   if (to === '/') {

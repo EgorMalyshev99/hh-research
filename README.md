@@ -20,6 +20,21 @@ pnpm dev
 
 Дальше: скопировать `apps/api/.env.example` → `apps/api/.env`, `apps/web/.env.example` → `apps/web/.env`, при необходимости прописать хосты в `hosts` (см. **AGENTS.md** → «Локальные домены»).
 
+### Telegram интеграция (ошибки + дайджест вакансий)
+
+В `apps/api/.env` добавьте:
+
+- `TELEGRAM_BOT_TOKEN` — токен бота от `@BotFather`
+- `TELEGRAM_ERRORS_CHAT_ID` — chat id группового чата для алертов API ошибок
+- `TELEGRAM_VACANCY_DIGEST_LIMIT` — лимит вакансий в личном сообщении за один прогон
+
+После этого:
+
+1. Пользователь пишет боту `/start` в Telegram.
+2. Клиент вызывает `POST /api/auth/telegram/connect` с телом `{ "chatId": "<telegram_chat_id>" }`.
+3. После `POST /api/search/run` пользователь получает в личку список вакансий (название + ссылка).
+4. Ошибки API уровня `5xx` отправляются в групповой чат.
+
 ## Запуск всего проекта в Docker
 
 Из корня репозитория:

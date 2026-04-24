@@ -8,6 +8,9 @@
     "start": "node dist/main",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "drizzle:migrate": "drizzle-kit migrate",
+    "drizzle:generate": "drizzle-kit generate",
+    "drizzle:push": "drizzle-kit push",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {

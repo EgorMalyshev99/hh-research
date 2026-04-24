@@ -23,4 +23,8 @@ export class UsersService {
     if (!user) throw new Error('Не удалось создать пользователя')
     return user
   }
+
+  async updateTelegramChatId(userId: number, chatId: string | null): Promise<void> {
+    await this.db.update(users).set({ telegramChatId: chatId, updatedAt: new Date() }).where(eq(users.id, userId))
+  }
 }

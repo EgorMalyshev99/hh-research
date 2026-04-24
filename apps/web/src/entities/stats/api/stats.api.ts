@@ -1,8 +1,16 @@
 import { VacancyStatsSchema } from '@repo/shared'
+import { useQuery } from '@tanstack/vue-query'
 
-import { http } from '@/shared/api/http'
+import { api } from '@/shared/api/http'
+import { queryKeys } from '@/shared/lib/query-keys'
 
-export async function fetchVacancyStats() {
-  const { data } = await http.get<unknown>('/stats')
+export const fetchVacancyStats = async () => {
+  const { data } = await api.get<unknown>('/stats')
   return VacancyStatsSchema.parse(data)
 }
+
+export const useStatsQuery = () =>
+  useQuery({
+    queryKey: queryKeys.stats.summary(),
+    queryFn: fetchVacancyStats,
+  })

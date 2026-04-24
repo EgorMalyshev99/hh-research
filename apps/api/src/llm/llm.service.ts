@@ -1,7 +1,9 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import {
+  LlmBatchScoreResponseSchema,
   LlmScoreResponseSchema,
+  type LlmBatchScoreItem,
   type LlmProviderId,
   type LlmProvidersStatus,
   type LlmRuntimeContext,
@@ -11,9 +13,7 @@ import {
 
 import type { AppConfig } from '../config/config.schema.js'
 
-import { buildCoverLetterPrompt, buildScorePrompt } from './prompts/templates.js'
-
-const RESUME_MAX_CHARS = 32_000
+import { buildBatchScorePrompt, buildCoverLetterPrompt, buildScorePrompt } from './prompts/templates.js'
 
 const ALL_PROVIDERS: LlmProviderId[] = ['gemini', 'openrouter', 'groq']
 
@@ -96,22 +96,31 @@ export class LlmService {
     }
   }
 
-  async scoreVacancy(vacancyText: string, resumeMarkdown: string, ctx: LlmRuntimeContext): Promise<LlmScoreResponse> {
-    const resume = this.truncateResume(resumeMarkdown)
-    const prompt = buildScorePrompt(resume, vacancyText)
+  async scoreVacancy(vacancyText: string, ctx: LlmRuntimeContext): Promise<LlmScoreResponse> {
+    const prompt = buildScorePrompt(vacancyText)
     this.logger.debug(`Скоринг через ${ctx.provider}/${ctx.model}`)
     const rawResponse = await this.callLlm(prompt, ctx.provider, ctx.model)
     return LlmScoreResponseSchema.parse(JSON.parse(rawResponse))
   }
 
+  async scoreVacanciesBatch(
+    vacancies: { id: string; text: string }[],
+    resumeText: string,
+    ctx: LlmRuntimeContext
+  ): Promise<LlmBatchScoreItem[]> {
+    if (!vacancies.length) return []
+    const prompt = buildBatchScorePrompt(resumeText, vacancies)
+    const rawResponse = await this.callLlm(prompt, ctx.provider, ctx.model)
+    return LlmBatchScoreResponseSchema.parse(JSON.parse(rawResponse))
+  }
+
   async generateCoverLetter(
     vacancyText: string,
-    resumeMarkdown: string,
+    resumeText: string,
     letterCfg: { tone: string; length: string; language: string },
     ctx: LlmRuntimeContext
   ): Promise<string> {
-    const resume = this.truncateResume(resumeMarkdown)
-    const prompt = buildCoverLetterPrompt(resume, vacancyText, letterCfg)
+    const prompt = buildCoverLetterPrompt(vacancyText, resumeText, letterCfg)
     return this.callLlm(prompt, ctx.provider, ctx.model)
   }
 
@@ -147,12 +156,6 @@ export class LlmService {
         }
       }
     }
-  }
-
-  private truncateResume(markdown: string): string {
-    if (markdown.length <= RESUME_MAX_CHARS) return markdown
-    this.logger.warn(`Резюме обрезано с ${markdown.length} до ${RESUME_MAX_CHARS} символов (~лимит токенов)`)
-    return markdown.slice(0, RESUME_MAX_CHARS)
   }
 
   private llmAbortSignal(): AbortSignal {

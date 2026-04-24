@@ -5,9 +5,10 @@
         <CardTitle class="text-base leading-snug">
           <a
             :href="row.data.alternateUrl"
-            class="text-primary hover:underline"
+            :class="row.isViewed ? 'text-muted-foreground hover:underline' : 'text-primary hover:underline'"
             target="_blank"
             rel="noopener noreferrer"
+            @click="onLinkClick"
           >
             {{ row.data.name }}
           </a>
@@ -31,8 +32,8 @@
       </div>
     </CardContent>
     <CardFooter class="border-border flex flex-wrap gap-2 border-t pt-3">
-      <Button type="button" variant="outline" size="sm" :disabled="row.isViewed" @click="emit('viewed')">
-        Просмотрена
+      <Button v-if="row.isRelevant" type="button" variant="outline" size="sm" @click="emit('coverLetter')">
+        Сгенерировать письмо
       </Button>
       <Button type="button" variant="outline" size="sm" :disabled="row.isApplied" @click="emit('applied')">
         Отклик
@@ -48,13 +49,20 @@ import type { StoredVacancyRow } from '@repo/shared'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
-defineProps<{
+const props = defineProps<{
   row: StoredVacancyRow
 }>()
 
 const emit = defineEmits<{
   viewed: []
+  coverLetter: []
   applied: []
   hide: []
 }>()
+
+const onLinkClick = () => {
+  if (!props.row.isViewed) {
+    emit('viewed')
+  }
+}
 </script>

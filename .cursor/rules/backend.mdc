@@ -78,10 +78,12 @@ const secret = this.configService.getOrThrow('JWT_ACCESS_SECRET');
 
 **LLM:** провайдер и модель — из **`POST /search/run`** + `settings` (`LlmRuntimeContext`); ключи только в env. **`GET /llm/status`** возвращает статус каждого из `gemini | openrouter | groq`. **Gemini** — Generative Language API; **openrouter** / **groq** — OpenAI-compatible в `LlmService`. Таймаут вызовов скоринга/писем — **`LLM_REQUEST_TIMEOUT_MS`** (`AbortSignal.timeout`). Ошибки провайдера: коды `LLM_TIMEOUT` (504), `LLM_RATE_LIMIT` (429), `LLM_UPSTREAM` / `LLM_NETWORK` / `LLM_EMPTY` (502) и др. в `HttpException`.
 
+**Telegram:** интеграция в `TelegramModule/TelegramService`. Глобальный `AllExceptionsFilter` отправляет `5xx` в групповой чат (`TELEGRAM_ERRORS_CHAT_ID`). `SearchService` отправляет пользователю краткий дайджест вакансий (название + ссылка) в `users.telegram_chat_id` после завершения прогона. Настройка пользователем — `POST /api/auth/telegram/connect` и `POST /api/auth/telegram/disconnect`.
+
 ## Ошибки и корреляция
 
 - Каждый запрос получает **`X-Request-Id`** (или клиентский заголовок сохраняется); то же значение в JSON ошибок как **`requestId`**.
-- Глобальный **`AllExceptionsFilter`** дописывает `requestId` к ответам `HttpException` и к 500-м «необработанным» исключениям.
+- Глобальный **`AllExceptionsFilter`** дописывает `requestId` к ответам `HttpException` и к 500-м «необработанным» исключениям, а также шлёт уведомления по `5xx` в Telegram-группу (если заполнены env Telegram).
 
 ## Swagger / OpenAPI
 

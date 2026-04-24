@@ -1,2 +1,1 @@
-export { fetchLlmStatus } from './api/llm.api'
-export { useLlmStatusQuery } from './model/useLlmStatusQuery'
+export { fetchLlmStatus, useLlmStatusQuery } from './api/llm.api'

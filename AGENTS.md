@@ -18,6 +18,7 @@
 - **nestjs-pino** — структурированное логирование
 - **LLM** — **gemini** / **openrouter** / **groq**: выбор в UI и в `POST /search/run` (`llmProvider`, `llmModel`), дефолты в `settings`; ключи API в `.env` (`GEMINI_API_KEY`, …); `**GET /llm/status`** — статус всех трёх; HTTP к провайдерам для скоринга/писем — `**AbortSignal.timeout(LLM_REQUEST_TIMEOUT_MS)`** (см. `config.schema.ts`); коды ошибок: `LLM_TIMEOUT`(504),`LLM_RATE_LIMIT`(429),`LLM_UPSTREAM`/`LLM_NETWORK`/`LLM_EMPTY` (502)
 - **Ошибки API** — глобальный `AllExceptionsFilter`: JSON с `**requestId`**, заголовок `**X-Request-Id`** (middleware); тело `HttpException`дополняется`requestId`
+- **Telegram-бот** — алерты об API-ошибках (`5xx`) в групповой чат (`TELEGRAM_ERRORS_CHAT_ID`) и персональный дайджест вакансий после прогона поиска (название + ссылка) в `users.telegram_chat_id`
 - **Swagger** — UI `http://<api-host>:3000/docs` (без префикса `/api`), спецификация JSON: `**GET /docs-json`\*\*; сохранение в репо: `pnpm --filter api run openapi:export` (нужен запущенный API; опционально `OPENAPI_URL=…`)
 - **cookie-parser** — парсинг httpOnly refresh cookies
 
@@ -31,7 +32,7 @@
 - **shadcn-vue** (`pnpm dlx shadcn-vue@latest init` + `add …`) — примитивы в `**src/components/ui`\*\*, `components.json`, утилита `src/lib/utils.ts` (`cn`)
 - **vee-validate** + **@vee-validate/zod** `toTypedSchema` — формы по [shadcn-vue + VeeValidate](https://www.shadcn-vue.com/docs/forms/vee-validate): `useForm`, `Field as VeeField`, `Field`, `FieldLabel`, `FieldError`, `Input`, `Button`, `Card`, …
 - **Tailwind CSS v4** — стили (`@import "tailwindcss"` в `app/styles/main.css`), семантические токены в `@theme` (`--color-primary` ≈ indigo, `--color-accent` ≈ violet, `--color-surface`, …)
-- **@tanstack/vue-query** — серверное состояние: `app/providers/vue-query.ts`, `VueQueryPlugin` + общий `queryClient` в `main.ts`, query в `entities/*/model/use*Query.ts`
+- **@tanstack/vue-query** — серверное состояние: `app/providers/vue-query.ts`, `VueQueryPlugin` + общий `queryClient` в `main.ts`; на фронте принят паттерн `1 запрос = 1 файл` в `entities/*/api/` (запрос + соответствующий query/mutation hook), в SFC хук всегда деструктурируется, а toast-обработка ошибок мутаций делается в компоненте через `watch(error)`
 - **@tanstack/vue-virtual** — виртуальный список вакансий (`widgets/vacancy-list`)
 - **reka-ui** — примитивы UI (shadcn-vue компоненты добавляются через CLI)
 - **@vueuse/core** — утилиты
@@ -59,7 +60,7 @@
 127.0.0.1  api.hh-research.loc
 ```
 
-Базовые URL приложения и внешних API в коде не захардкожены: `**VITE_API_URL**` (web), `**FRONTEND_URL**`, `**HH_API_BASE**`, `**GEMINI_API_BASE**`, `**OPENROUTER_API_BASE**`, `**GROQ_API_BASE**` (API) — см. `apps/web/.env.example`, `apps/api/.env.example` и раздел **«URL и ссылки»** в `PROJECT_PLAN.md`.
+Базовые URL приложения и внешних API в коде не захардкожены: `**VITE_API_URL**` (web), `**FRONTEND_URL**`, `**HH_API_BASE**`, `**GEMINI_API_BASE**`, `**OPENROUTER_API_BASE**`, `**GROQ_API_BASE**` (API) — см. `apps/web/.env.example`, `apps/api/.env.example` и раздел **«URL и ссылки»** в `PROJECT_PLAN.md`. Для Telegram-уведомлений используются `**TELEGRAM_BOT_TOKEN**`, `**TELEGRAM_ERRORS_CHAT_ID**`, `**TELEGRAM_VACANCY_DIGEST_LIMIT**`.
 
 ## Запуск
 
@@ -139,9 +140,9 @@ hh-research/
 
 ## Drizzle схема (таблицы)
 
-- `users` — id, email, password_hash, name, created_at, updated_at
+- `users` — id, email, password_hash, name, telegram_chat_id, created_at, updated_at
 - `refresh_tokens` — id, user_id (→users), token_hash, expires_at, created_at
-- `settings` — id, user_id (→users, unique), search_config (jsonb), cover_letter_config (jsonb), resume_markdown, llm_provider, llm_model
+- `settings` — id, user_id (→users, unique), search_config (jsonb), cover_letter_config (jsonb), llm_provider, llm_model
 - `vacancies` — id, user_id (→users), hh_id, data (jsonb), score, score_reason, is_relevant, cover_letter, processed_at, is_viewed, is_applied, hidden; unique (user_id, hh_id)
 - `blacklist` — id, user_id, company_name, created_at
 - `search_runs` — id, user_id, started_at, finished_at, status, total_found, above_threshold, error_message
@@ -154,10 +155,12 @@ hh-research/
 | ------- | --------------------------------------------------------------------------- | ------------------------------------------------ |
 | GET     | `/auth/me`                                                                  | Текущий пользователь                             |
 | POST    | `/auth/logout`                                                              | Выход                                            |
+| POST    | `/auth/telegram/connect`                                                    | Привязать Telegram chat id                       |
+| POST    | `/auth/telegram/disconnect`                                                 | Отвязать Telegram chat id                        |
 | GET     | `/llm/status`                                                               | Доступность LLM                                  |
 | POST    | `/search/run`                                                               | Запуск поиска (503 если LLM недоступен)          |
 | GET     | `/search/stream`                                                            | SSE прогресса (`?access_token=` — см. ниже)      |
-| GET/PUT | `/settings`, `/settings/resume`                                             | Настройки и резюме                               |
+| GET/PUT | `/settings`                                                                 | Настройки                                        |
 | CRUD    | `/vacancies`, `/vacancies/:id`, `PATCH .../viewed`, `.../applied`, `DELETE` | Вакансии                                         |
 | CRUD    | `/blacklist`                                                                | Чёрный список компаний                           |
 | GET     | `/history`                                                                  | История запусков                                 |

@@ -6,8 +6,8 @@
         <p class="text-muted-foreground mt-1 text-sm">Таблица запусков и краткая статистика по результатам.</p>
       </div>
 
-      <div v-if="hq.isPending" class="text-muted-foreground text-sm">Загрузка…</div>
-      <div v-else-if="hq.isError" class="text-destructive text-sm">Не удалось загрузить историю</div>
+      <div v-if="historyPending" class="text-muted-foreground text-sm">Загрузка…</div>
+      <div v-else-if="historyError" class="text-destructive text-sm">Не удалось загрузить историю</div>
       <template v-else>
         <Card>
           <CardHeader>
@@ -70,19 +70,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useHistoryQuery } from '@/entities/history'
 import DefaultLayout from '@/widgets/default-layout/DefaultLayout.vue'
 
-const hq = useHistoryQuery()
+const { data: historyData, isPending: historyPending, isError: historyError } = useHistoryQuery()
 
-const rows = computed(() => hq.data.value ?? [])
+const rows = computed(() => historyData.value ?? [])
 
-function fmt(iso: string) {
-  return new Date(iso).toLocaleString('ru-RU', {
+const fmt = (iso: string) =>
+  new Date(iso).toLocaleString('ru-RU', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   })
-}
 
 const chartOptions = computed<Options>(() => {
   const list = rows.value

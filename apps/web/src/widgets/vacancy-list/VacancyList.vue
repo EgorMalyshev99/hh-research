@@ -19,6 +19,7 @@
           <VacancyCard
             :row="items[v.index]!"
             @viewed="onViewed(items[v.index]!.id)"
+            @cover-letter="onCoverLetter(items[v.index]!.id)"
             @applied="onApplied(items[v.index]!.id)"
             @hide="onHide(items[v.index]!.id)"
           />
@@ -32,8 +33,16 @@
 import type { StoredVacancyRow } from '@repo/shared'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 
-import { useVacancyActions } from '@/entities/vacancy'
+import { useResumesQuery } from '@/entities/resume'
+import {
+  useGenerateCoverLetterMutation,
+  useHideVacancyMutation,
+  useMarkVacancyAppliedMutation,
+  useMarkVacancyViewedMutation,
+} from '@/entities/vacancy'
+import { getApiErrorMessage } from '@/shared/lib/api-error'
 import VacancyCard from '@/entities/vacancy/ui/VacancyCard.vue'
 
 const props = defineProps<{
@@ -60,17 +69,58 @@ watch(
   }
 )
 
-const { viewed, applied, hide } = useVacancyActions()
+const { mutateAsync: markViewed, error: viewedError } = useMarkVacancyViewedMutation()
+const { mutateAsync: generateCoverLetter, error: letterError } = useGenerateCoverLetterMutation()
+const { mutateAsync: markApplied, error: appliedError } = useMarkVacancyAppliedMutation()
+const { mutateAsync: hideVacancy, error: hideError } = useHideVacancyMutation()
+const { data: resumesData } = useResumesQuery()
 
-function onViewed(id: number) {
-  void viewed.mutateAsync(id)
+watch(viewedError, (error) => {
+  if (!error) return
+  toast.error('Не удалось отметить просмотр', {
+    description: getApiErrorMessage(error),
+  })
+})
+
+watch(appliedError, (error) => {
+  if (!error) return
+  toast.error('Не удалось отметить отклик', {
+    description: getApiErrorMessage(error),
+  })
+})
+
+watch(letterError, (error) => {
+  if (!error) return
+  toast.error('Не удалось сгенерировать письмо', {
+    description: getApiErrorMessage(error),
+  })
+})
+
+watch(hideError, (error) => {
+  if (!error) return
+  toast.error('Не удалось скрыть вакансию', {
+    description: getApiErrorMessage(error),
+  })
+})
+
+const onViewed = (id: number) => {
+  void markViewed(id)
 }
 
-function onApplied(id: number) {
-  void applied.mutateAsync(id)
+const onApplied = (id: number) => {
+  void markApplied(id)
 }
 
-function onHide(id: number) {
-  void hide.mutateAsync(id)
+const onCoverLetter = (id: number) => {
+  const firstResume = resumesData.value?.[0]
+  if (!firstResume) {
+    toast.error('Добавьте резюме перед генерацией письма')
+    return
+  }
+  void generateCoverLetter({ vacancyId: id, resumeId: firstResume.id })
+}
+
+const onHide = (id: number) => {
+  void hideVacancy(id)
 }
 </script>

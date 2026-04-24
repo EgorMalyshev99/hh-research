@@ -9,6 +9,7 @@ import type { AppConfig } from '../../config/config.schema.js'
 export interface JwtPayload {
   sub: number
   email: string
+  role: 'admin' | 'job_seeker'
   iat: number
   exp: number
 }

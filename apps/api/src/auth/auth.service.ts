@@ -35,7 +35,7 @@ export class AuthService {
       name: dto.name,
     })
 
-    return this.issueTokens(user.id, user.email)
+    return this.issueTokens(user.id, user.email, user.role)
   }
 
   async login(dto: LoginDto): Promise<AuthTokenPair> {
@@ -49,7 +49,7 @@ export class AuthService {
       throw new UnauthorizedException('Неверный email или пароль')
     }
 
-    return this.issueTokens(user.id, user.email)
+    return this.issueTokens(user.id, user.email, user.role)
   }
 
   async logout(userId: number, refreshToken: string): Promise<void> {
@@ -84,7 +84,7 @@ export class AuthService {
     const user = await this.usersService.findById(userId)
     if (!user) throw new UnauthorizedException()
 
-    return this.issueTokens(user.id, user.email)
+    return this.issueTokens(user.id, user.email, user.role)
   }
 
   verifyRefreshToken(token: string): JwtPayload {
@@ -93,8 +93,8 @@ export class AuthService {
     })
   }
 
-  private async issueTokens(userId: number, email: string): Promise<AuthTokenPair> {
-    const payload = { sub: userId, email }
+  private async issueTokens(userId: number, email: string, role: 'admin' | 'job_seeker'): Promise<AuthTokenPair> {
+    const payload = { sub: userId, email, role }
 
     const accessToken = this.jwtService.sign(payload)
 

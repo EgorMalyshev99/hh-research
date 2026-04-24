@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { LlmProviderIdSchema } from './llm'
+import { VacancySchema } from './vacancy'
 
 export const ScheduleFilterSchema = z.enum(['remote', 'office', 'hybrid', 'flexible'])
 
@@ -29,7 +30,6 @@ export const SettingsSchema = z.object({
   userId: z.number(),
   searchConfig: SearchConfigSchema.nullable(),
   coverLetterConfig: CoverLetterConfigSchema,
-  resumeMarkdown: z.string().nullable(),
   llmProvider: LlmProviderIdSchema.default('gemini'),
   llmModel: z.string().default('gemini-2.0-flash'),
   createdAt: z.string().datetime(),
@@ -39,7 +39,6 @@ export const SettingsSchema = z.object({
 export const UpdateSettingsSchema = SettingsSchema.pick({
   searchConfig: true,
   coverLetterConfig: true,
-  resumeMarkdown: true,
   llmProvider: true,
   llmModel: true,
 }).partial()
@@ -48,6 +47,8 @@ export const UpdateSettingsSchema = SettingsSchema.pick({
 export const RunSearchBodySchema = SearchConfigSchema.partial().extend({
   llmProvider: LlmProviderIdSchema.optional(),
   llmModel: z.string().min(1).optional(),
+  resumeId: z.number().int().positive(),
+  vacancies: z.array(VacancySchema).min(1).max(200).optional(),
 })
 
 export type ScheduleFilter = z.infer<typeof ScheduleFilterSchema>
