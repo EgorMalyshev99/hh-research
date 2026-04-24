@@ -1,15 +1,11 @@
 import { Global, Module } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
 
 import type { AppConfig } from '../config/config.schema.js'
-
-import * as schema from './schema/index.js'
+import { createDb, type DrizzleDb as SharedDrizzleDb } from '../db/index.js'
 
 export const DRIZZLE = Symbol('DRIZZLE')
-
-export type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>
+export type DrizzleDb = SharedDrizzleDb
 
 @Global()
 @Module({
@@ -18,9 +14,10 @@ export type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>
       provide: DRIZZLE,
       inject: [ConfigService],
       useFactory(configService: ConfigService<AppConfig, true>): DrizzleDb {
-        const url = configService.getOrThrow('DATABASE_URL')
-        const client = postgres(url, { max: 10 })
-        return drizzle(client, { schema })
+        return createDb({
+          databaseUrl: configService.getOrThrow('DATABASE_URL'),
+          nodeEnv: configService.getOrThrow('NODE_ENV'),
+        })
       },
     },
   ],
