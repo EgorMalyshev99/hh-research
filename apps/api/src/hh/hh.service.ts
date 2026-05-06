@@ -1,6 +1,7 @@
+import { createHash, randomBytes } from 'node:crypto'
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { RunSearchBodySchema, type RunSearchBody, type ScheduleFilter, type Vacancy } from '@repo/shared'
+import { RunSearchBodySchema, type ScheduleFilter, type Vacancy } from '@repo/shared'
 
 import type { AppConfig } from '../config/config.schema.js'
 
@@ -46,6 +47,21 @@ interface HhAreaNode {
   id: string | number
   name: string
   areas?: HhAreaNode[]
+}
+
+export interface HhOauthTokenResponse {
+  access_token: string
+  refresh_token: string
+  token_type: string
+  expires_in: number
+}
+
+interface BuildHhAuthorizeUrlOptions {
+  state?: string
+  forceLogin?: boolean
+  skipChooseAccount?: boolean
+  role?: 'applicant' | 'employer'
+  forceRole?: boolean
 }
 
 @Injectable()
@@ -131,6 +147,99 @@ export class HhService {
     walk(tree, null)
     this.areasCache.set(key, { data: flat, expiresAt: Date.now() + CACHE_TTL_MS })
     return flat
+  }
+
+  buildOauthAuthorizeUrl(options: BuildHhAuthorizeUrlOptions = {}): {
+    authorizeUrl: string
+    state: string
+    codeVerifier: string
+    codeChallenge: string
+    redirectUri: string
+  } {
+    const state = options.state ?? randomBytes(16).toString('hex')
+    const codeVerifier = randomBytes(32).toString('base64url')
+    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url')
+    const redirectUri = this.configService.getOrThrow('HH_OAUTH_REDIRECT_URI')
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: this.configService.getOrThrow('HH_OAUTH_CLIENT_ID'),
+      state,
+      redirect_uri: redirectUri,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      ...(options.forceLogin ? { force_login: 'true' } : {}),
+      ...(options.skipChooseAccount ? { skip_choose_account: 'true' } : {}),
+      ...(options.role ? { role: options.role } : {}),
+      ...(options.forceRole ? { force_role: 'true' } : {}),
+    })
+
+    const authorizeUrl = `${this.configService.getOrThrow('HH_OAUTH_AUTHORIZE_URL')}?${params.toString()}`
+    return { authorizeUrl, state, codeVerifier, codeChallenge, redirectUri }
+  }
+
+  async exchangeCodeForToken(code: string, codeVerifier: string): Promise<HhOauthTokenResponse> {
+    return this.fetchOauthToken({
+      grant_type: 'authorization_code',
+      code,
+      code_verifier: codeVerifier,
+      redirect_uri: this.configService.getOrThrow('HH_OAUTH_REDIRECT_URI'),
+      client_id: this.configService.getOrThrow('HH_OAUTH_CLIENT_ID'),
+      ...(this.configService.get('HH_OAUTH_CLIENT_SECRET')
+        ? { client_secret: this.configService.getOrThrow('HH_OAUTH_CLIENT_SECRET') }
+        : {}),
+    })
+  }
+
+  async refreshOauthToken(refreshToken: string): Promise<HhOauthTokenResponse> {
+    return this.fetchOauthToken({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: this.configService.getOrThrow('HH_OAUTH_CLIENT_ID'),
+      ...(this.configService.get('HH_OAUTH_CLIENT_SECRET')
+        ? { client_secret: this.configService.getOrThrow('HH_OAUTH_CLIENT_SECRET') }
+        : {}),
+    })
+  }
+
+  private async fetchOauthToken(body: Record<string, string>): Promise<HhOauthTokenResponse> {
+    const response = await fetch(this.configService.getOrThrow('HH_OAUTH_TOKEN_URL'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+        'User-Agent': this.configService.getOrThrow('HH_USER_AGENT'),
+      },
+      body: new URLSearchParams(body),
+      signal: AbortSignal.timeout(HH_TIMEOUT_MS),
+    })
+
+    if (!response.ok) {
+      const details = await response.text()
+      throw new HttpException(
+        {
+          code: 'HH_OAUTH_TOKEN_ERROR',
+          message: `Не удалось получить HH OAuth токен (${response.status})`,
+          details: details.slice(0, 500),
+        },
+        HttpStatus.BAD_GATEWAY
+      )
+    }
+
+    const parsed = (await response.json()) as Partial<HhOauthTokenResponse>
+    if (!parsed.access_token || !parsed.refresh_token || !parsed.token_type || !parsed.expires_in) {
+      throw new HttpException(
+        { code: 'HH_OAUTH_INVALID_RESPONSE', message: 'HH OAuth вернул неполный ответ токена' },
+        HttpStatus.BAD_GATEWAY
+      )
+    }
+
+    return {
+      access_token: parsed.access_token,
+      refresh_token: parsed.refresh_token,
+      token_type: parsed.token_type,
+      expires_in: parsed.expires_in,
+    }
   }
 
   private async fetchWithRetry<T>(path: string): Promise<T> {
