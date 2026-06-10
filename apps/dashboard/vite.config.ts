@@ -1,5 +1,5 @@
-import { fileURLToPath, URL } from 'node:url'
 import path from 'node:path'
+import { fileURLToPath, URL } from 'node:url'
 
 import tailwindcss from '@tailwindcss/vite'
 import Vue from '@vitejs/plugin-vue'
@@ -12,12 +12,8 @@ const monorepoRoot = path.resolve(dashboardRoot, '../..')
 export default defineConfig((config) => {
   const env = loadEnv(config.mode, process.cwd(), '')
 
-  const host = env.VITE_APP_HOST
-  const port = Number(env.VITE_APP_PORT)
-
-  if (!host || !port) {
-    throw new Error('Задайте VITE_APP_HOST и VITE_APP_PORT в apps/dashboard/.env')
-  }
+  const host = env.VITE_APP_HOST ?? 'localhost'
+  const port = env.VITE_APP_PORT ? Number(env.VITE_APP_PORT) : 3001
 
   return {
     plugins: [

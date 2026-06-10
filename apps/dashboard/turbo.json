@@ -1,0 +1,14 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["VITE_API_URL", "VITE_APP_HOST", "VITE_APP_PORT"]
+    }
+  }
+}

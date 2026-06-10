@@ -1,0 +1,39 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URL",
+        "JWT_ACCESS_SECRET",
+        "JWT_REFRESH_SECRET",
+        "JWT_ACCESS_EXPIRES_IN",
+        "JWT_REFRESH_EXPIRES_IN",
+        "PORT",
+        "DASHBOARD_URL",
+        "LANDING_URL",
+        "CORS_ORIGINS",
+        "TRUDVSEM_API_BASE",
+        "SUPERJOB_API_BASE",
+        "SUPERJOB_APP_ID",
+        "VACANCY_IMPORT_MAX_LIMIT",
+        "GEMINI_API_BASE",
+        "GEMINI_API_KEY",
+        "OPENROUTER_API_BASE",
+        "OPENROUTER_API_KEY",
+        "OPENROUTER_HTTP_REFERER",
+        "GROQ_API_BASE",
+        "GROQ_API_KEY",
+        "LLM_REQUEST_TIMEOUT_MS",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_ERRORS_CHAT_ID",
+        "TELEGRAM_VACANCY_DIGEST_LIMIT"
+      ]
+    }
+  }
+}

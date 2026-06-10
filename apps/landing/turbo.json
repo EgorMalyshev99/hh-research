@@ -1,0 +1,14 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["NUXT_PUBLIC_APP_HOST", "NUXT_PUBLIC_APP_PORT", "NUXT_PUBLIC_DASHBOARD_URL", "VERCEL_URL"]
+    }
+  }
+}
