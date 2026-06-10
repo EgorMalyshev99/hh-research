@@ -11,7 +11,7 @@ import { typeAwareTypeScriptEslintRules } from './type-aware-ts.js'
 const FSD_LAYERS = ['app', 'pages', 'widgets', 'features', 'entities', 'shared']
 
 /**
- * ESLint пресет для Vue 3 + FSD приложения (apps/web).
+ * ESLint пресет для Vue 3 + FSD приложения (apps/dashboard).
  *
  * @param {{ fsdRoot?: string }} [options]
  * @returns {import("eslint").Linter.Config[]}

@@ -1,9 +1,9 @@
-import { config } from '@repo/eslint-config/nest';
+import { config } from '@repo/eslint-config/nest'
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
   ...config,
   {
-    ignores: ['dist/**', 'drizzle/**'],
+    ignores: ['dist/**', 'drizzle/**', 'drizzle.config.ts'],
   },
-];
+]

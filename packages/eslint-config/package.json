@@ -6,7 +6,9 @@
   "exports": {
     "./base": "./base.js",
     "./nest": "./nest.js",
-    "./vue": "./vue.js"
+    "./vue": "./vue.js",
+    "./nuxt": "./nuxt.js",
+    "./ui": "./ui.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

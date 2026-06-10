@@ -1,80 +1,62 @@
 ---
-description: Общий контекст проекта hh-assistant. Читать при любой работе с репозиторием.
+description: Общий контекст проекта job-research. Читать при любой работе с репозиторием.
 globs: **/*
 alwaysApply: true
 ---
 
-# hh-assistant — общие правила проекта
+# job-research — общие правила проекта
 
 ## Контекст
 
-Локальный ассистент поиска работы: hh.ru + LLM-скоринг + сопроводительные письма.
-Полный контекст и прогресс по фазам — в `AGENTS.md` в корне репозитория.
+Локальный ассистент поиска работы: dashboard + landing + API. Полный контекст — в `AGENTS.md`.
 
 ## Монорепо
 
 **Менеджер пакетов**: `pnpm` (workspace). Не использовать `npm` или `yarn`.
 
 ```
-apps/api/   — NestJS backend
-apps/web/   — Vue 3 frontend (FSD)
-packages/shared/          — zod-схемы и TypeScript-типы (общие для api и web)
-packages/eslint-config/   — ESLint 10.2.1 flat config (пресеты base, nest, vue)
-packages/typescript-config/ — tsconfig пресеты (base, nestjs, vue)
+apps/api/         — NestJS backend
+apps/dashboard/   — Vue 3 SPA (FSD)
+apps/landing/     — Nuxt 4 marketing
+packages/shared/  — zod-схемы и типы
+packages/ui/      — @repo/ui (shadcn-vue + globals.css)
+packages/eslint-config/
+packages/typescript-config/
 ```
 
-## Домены разработки
+## URL — только через env
 
-Примеры hostname для `/etc/hosts` (сами URL в рантайме — из энвов, см. ниже):
+**Не хардкодить** hostname и base URL в коде. Примеры — только в `.env.example`.
 
-| Сервис       | Пример URL                      |
-| ------------ | ------------------------------- |
-| Web (Vite)   | http://hh-research.loc:3001     |
-| API (NestJS) | http://api.hh-research.loc:3000 |
-| PostgreSQL   | localhost:5432                  |
+| App       | Ключевые переменные                                                         |
+| --------- | --------------------------------------------------------------------------- |
+| API       | `DATABASE_URL`, `DASHBOARD_URL`, `LANDING_URL`, `CORS_ORIGINS`              |
+| dashboard | `VITE_APP_HOST`, `VITE_APP_PORT`, `VITE_API_URL`                            |
+| landing   | `NUXT_PUBLIC_APP_HOST`, `NUXT_PUBLIC_APP_PORT`, `NUXT_PUBLIC_DASHBOARD_URL` |
 
 ## Переменные окружения
 
-- **Базовые URL и ссылки** не хардкодить в прикладном коде: фронт — `VITE_API_URL` и `apps/web/src/shared/config/env.ts`; API — `FRONTEND_URL`, `HH_API_BASE`, `GEMINI_API_BASE`, `OPENROUTER_API_BASE`, `GROQ_API_BASE`, **`LLM_REQUEST_TIMEOUT_MS`** и др. в `apps/api/src/config/config.schema.ts` + `.env.example`.
-- Интеграции уведомлений тоже только через env и `ConfigService`: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ERRORS_CHAT_ID`, `TELEGRAM_VACANCY_DIGEST_LIMIT`.
-- **OpenAPI**: при запущенном API — `GET /docs-json`; в репо: `pnpm --filter api run openapi:export` (опционально `OPENAPI_URL`), файл `apps/api/openapi/openapi.json`.
-- `.env` для API: `apps/api/.env` — **не в корне**; для web: `apps/web/.env` (по необходимости), шаблон — `apps/web/.env.example`.
-- Никогда не коммитить `.env` — только `.env.example`.
-- Валидация env через zod-схему при старте API.
-
-## Зависимости между пакетами
-
-- `packages/shared` — импортируется в `apps/api` и `apps/web`. Компилируется в CJS (`tsc -p tsconfig.build.json` → `dist/`). Turbo `dev`/`build` собирает shared автоматически (`dependsOn: ["^build"]`).
-- ESLint конфиги — только devDependencies.
-- Никаких cross-imports между `apps/api` и `apps/web`.
+- API: `apps/api/.env` + zod в `config.schema.ts`
+- dashboard: `apps/dashboard/.env`
+- landing: `apps/landing/.env`
+- Никогда не коммитить `.env`
 
 ## Запуск
 
 ```bash
-docker compose up -d                 # PostgreSQL 17 (обязателен до старта API)
 pnpm install
-pnpm --filter api drizzle-kit push   # применить схему к БД
-pnpm dev                             # запуск всех приложений
+# заполнить .env из .env.example
+cd apps/api && pnpm drizzle-kit push && cd ../..
+pnpm dev
 ```
 
-## Docker
+БД — **prod PostgreSQL** через `DATABASE_URL`. Docker в репо **не используется**.
 
-`docker-compose.yml` в корне поддерживает два режима:
+## Качество кода
 
-- только БД (`docker compose up -d postgres`) для локальной dev-разработки с `pnpm dev`;
-- весь стек (`docker compose up --build -d`) для запуска `postgres + api + web` в контейнерах.
-
-## Стиль кода
-
-- **TypeScript strict** везде.
-- Форматирование — **prettier** (`pnpm format`).
-- Линт — **ESLint 10 flat config** (`pnpm lint`).
-- Импорты: абсолютные пути через `@/` в `apps/web`, относительные внутри модуля в `apps/api`.
-- Комментарии в коде — на **русском** языке (документирующие) или английском (JSDoc-теги).
+- `pnpm lint` / `pnpm format:check` / `pnpm check-types`
+- ESLint: `@repo/eslint-config` — `vue`, `nuxt`, `ui`, `nest`
 
 ## Context7
 
-При работе с внешними пакетами — сверяться с документацией через context7 MCP
-(`resolve-library-id` → `query-docs`). Особенно важно для:
-
-- `vue-router`, **shadcn-vue Forms + vee-validate** ([дока форм](https://www.shadcn-vue.com/docs/forms/vee-validate)), `shadcn-vue` CLI/тема, `drizzle-orm`, `nestjs-pino`
+При работе с внешними пакетами — context7 MCP (`resolve-library-id` → `query-docs`).

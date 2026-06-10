@@ -33,6 +33,7 @@ export class AuthService {
       email: dto.email,
       passwordHash,
       name: dto.name,
+      role: dto.role,
     })
 
     return this.issueTokens(user.id, user.email, user.role)
@@ -93,7 +94,11 @@ export class AuthService {
     })
   }
 
-  private async issueTokens(userId: number, email: string, role: 'admin' | 'job_seeker'): Promise<AuthTokenPair> {
+  private async issueTokens(
+    userId: number,
+    email: string,
+    role: 'admin' | 'job_seeker' | 'employer'
+  ): Promise<AuthTokenPair> {
     const payload = { sub: userId, email, role }
 
     const accessToken = this.jwtService.sign(payload)

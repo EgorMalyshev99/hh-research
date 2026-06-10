@@ -74,7 +74,7 @@ constructor(private configService: ConfigService<AppConfig, true>) {}
 const secret = this.configService.getOrThrow('JWT_ACCESS_SECRET');
 ```
 
-**URL внешних и внутренних сервисов** (`FRONTEND_URL`, `HH_API_BASE`, `GEMINI_API_BASE`, `OPENROUTER_API_BASE`, `GROQ_API_BASE` и т.д.) — только из `ConfigService` / схемы с zod-дефолтами, не строковые литералы в сервисах.
+**URL внешних и внутренних сервисов** (`DASHBOARD_URL`, `LANDING_URL`, `HH_API_BASE`, …) — только из `ConfigService` / `config.schema.ts`.
 
 **LLM:** провайдер и модель — из **`POST /search/run`** + `settings` (`LlmRuntimeContext`); ключи только в env. **`GET /llm/status`** возвращает статус каждого из `gemini | openrouter | groq`. **Gemini** — Generative Language API; **openrouter** / **groq** — OpenAI-compatible в `LlmService`. Таймаут вызовов скоринга/писем — **`LLM_REQUEST_TIMEOUT_MS`** (`AbortSignal.timeout`). Ошибки провайдера: коды `LLM_TIMEOUT` (504), `LLM_RATE_LIMIT` (429), `LLM_UPSTREAM` / `LLM_NETWORK` / `LLM_EMPTY` (502) и др. в `HttpException`.
 

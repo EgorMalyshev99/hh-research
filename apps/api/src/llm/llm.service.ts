@@ -1,9 +1,8 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import {
-  LlmBatchScoreResponseSchema,
+  LlmResumeAnalysisResponseSchema,
   LlmScoreResponseSchema,
-  type LlmBatchScoreItem,
   type LlmProviderId,
   type LlmProvidersStatus,
   type LlmRuntimeContext,
@@ -13,7 +12,7 @@ import {
 
 import type { AppConfig } from '../config/config.schema.js'
 
-import { buildBatchScorePrompt, buildCoverLetterPrompt, buildScorePrompt } from './prompts/templates.js'
+import { buildCoverLetterPrompt, buildResumeAnalysisPrompt, buildScorePrompt } from './prompts/templates.js'
 
 const ALL_PROVIDERS: LlmProviderId[] = ['gemini', 'openrouter', 'groq']
 
@@ -103,15 +102,15 @@ export class LlmService {
     return LlmScoreResponseSchema.parse(JSON.parse(rawResponse))
   }
 
-  async scoreVacanciesBatch(
-    vacancies: { id: string; text: string }[],
+  async analyzeResumeMatch(
+    vacancyText: string,
     resumeText: string,
     ctx: LlmRuntimeContext
-  ): Promise<LlmBatchScoreItem[]> {
-    if (!vacancies.length) return []
-    const prompt = buildBatchScorePrompt(resumeText, vacancies)
+  ): Promise<{ score: number; reason: string; highlights?: string[] }> {
+    await this.assertLlmAvailable(ctx)
+    const prompt = buildResumeAnalysisPrompt(vacancyText, resumeText)
     const rawResponse = await this.callLlm(prompt, ctx.provider, ctx.model)
-    return LlmBatchScoreResponseSchema.parse(JSON.parse(rawResponse))
+    return LlmResumeAnalysisResponseSchema.parse(JSON.parse(rawResponse))
   }
 
   async generateCoverLetter(
@@ -143,7 +142,7 @@ export class LlmService {
           extraHeaders: {},
         }
       case 'openrouter': {
-        const extra: Record<string, string> = { 'X-Title': 'hh-assistant' }
+        const extra: Record<string, string> = { 'X-Title': 'job-research' }
         const referer = this.configService.get('OPENROUTER_HTTP_REFERER')
         if (referer) {
           extra['HTTP-Referer'] = referer

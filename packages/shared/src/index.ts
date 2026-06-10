@@ -1,5 +1,7 @@
 export * from './schemas/auth'
+export * from './schemas/user'
 export * from './schemas/vacancy'
+export * from './schemas/vacancy-import'
 export * from './schemas/settings'
 export * from './schemas/resume'
 export * from './schemas/sse'

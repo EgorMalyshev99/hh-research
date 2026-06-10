@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## Где схема
 
-- Подключение к БД — только **`DATABASE_URL`** из env (схема в `config.schema.ts`), без хардкода host в коде.
+- Подключение к БД — только **`DATABASE_URL`** (prod PostgreSQL) из env. Docker/local postgres **не используется**.
 - Таблицы: `apps/api/src/database/schema/*.ts`
 - Реэкспорт: `apps/api/src/database/schema/index.ts`
 - Подключение: `DatabaseModule`, инжект `DRIZZLE` (см. `backend.mdc`)

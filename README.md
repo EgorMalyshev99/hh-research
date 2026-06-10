@@ -1,66 +1,61 @@
-# hh-research
+# job-research
 
-Локальный ассистент поиска работы: **NestJS** (API) + **Vue 3** (UI), PostgreSQL, интеграция с hh.ru и LLM. Подробности стека, домены и архитектура — в **[AGENTS.md](AGENTS.md)**.
+Локальный ассистент поиска работы: **NestJS** (API) + **Vue dashboard** (роли employer/seeker/admin) + **Nuxt landing**, prod PostgreSQL, каталог вакансий и LLM on-demand. Подробности — в **[AGENTS.md](AGENTS.md)**.
 
-## Быстрый старт (локальная разработка)
+## Быстрый старт
 
 Из корня репозитория:
 
 ```bash
-docker compose up -d postgres
 pnpm install
+cp apps/api/.env.example apps/api/.env
+cp apps/dashboard/.env.example apps/dashboard/.env
+cp apps/landing/.env.example apps/landing/.env
+# Заполните prod DATABASE_URL и секреты в apps/api/.env
 cd apps/api && pnpm drizzle-kit push && cd ../..
 pnpm dev
 ```
 
-1. `**docker compose up -d postgres**` — поднимает PostgreSQL 17.
-2. `**pnpm install**` — зависимости монорепо (pnpm workspaces + Turborepo).
-3. `**cd apps/api && pnpm drizzle-kit push && cd ../..**` — применяет схему Drizzle к БД (из каталога `apps/api`).
-4. `**pnpm dev**` — параллельно API (`:3000`) и Web (`:3001`) через Turbo.
+`pnpm dev` поднимает API, dashboard и landing через Turborepo. Порты и хосты — из `.env` каждого приложения.
 
-Дальше: скопировать `apps/api/.env.example` → `apps/api/.env`, `apps/web/.env.example` → `apps/web/.env`, при необходимости прописать хосты в `hosts` (см. **AGENTS.md** → «Локальные домены»).
+### Локальные домены (опционально)
 
-### Telegram интеграция (ошибки + дайджест вакансий)
+Добавьте в `/etc/hosts` (WSL) или `C:\Windows\System32\drivers\etc\hosts`:
 
-В `apps/api/.env` добавьте:
-
-- `TELEGRAM_BOT_TOKEN` — токен бота от `@BotFather`
-- `TELEGRAM_ERRORS_CHAT_ID` — chat id группового чата для алертов API ошибок
-- `TELEGRAM_VACANCY_DIGEST_LIMIT` — лимит вакансий в личном сообщении за один прогон
-
-После этого:
-
-1. Пользователь пишет боту `/start` в Telegram.
-2. Клиент вызывает `POST /api/auth/telegram/connect` с телом `{ "chatId": "<telegram_chat_id>" }`.
-3. После `POST /api/search/run` пользователь получает в личку список вакансий (название + ссылка).
-4. Ошибки API уровня `5xx` отправляются в групповой чат.
-
-## Запуск всего проекта в Docker
-
-Из корня репозитория:
-
-```bash
-docker compose up --build -d
+```text
+127.0.0.1 api.job-research.loc
+127.0.0.1 dashboard.job-research.loc
+127.0.0.1 landing.job-research.loc
 ```
 
-Сервисы после запуска:
+Примеры URL — в `.env.example` соответствующих apps.
 
-- `http://localhost:3001` — web
-- `http://localhost:3000` — api
-- `http://localhost:3000/docs` — Swagger
+## Структура фронта
 
-Остановить всё:
+| App       | URL (из .env.example)             | Назначение                    |
+| --------- | --------------------------------- | ----------------------------- |
+| landing   | `landing.job-research.loc:3002`   | Маркетинг, SSG                |
+| dashboard | `dashboard.job-research.loc:3001` | Кабинет (auth, вакансии, LLM) |
+| api       | `api.job-research.loc:3000`       | REST + Swagger `/docs`        |
 
-```bash
-docker compose down
-```
+UI-kit: `@repo/ui` — `import { Button } from '@repo/ui'`, стили `@repo/ui/globals.css`.
 
-## Полезные команды
+## Telegram
 
-| Команда                                | Назначение                                                                                                                                                                                                        |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm build`                           | Сборка всех пакетов                                                                                                                                                                                               |
-| `pnpm lint` / `pnpm check-types`       | Линт и проверка типов                                                                                                                                                                                             |
-| `pnpm --filter api run openapi:export` | Сохранить `apps/api/openapi/openapi.json` через `curl` к **уже запущенному** API (по умолчанию `http://127.0.0.1:3000`; иначе `OPENAPI_URL=http://api.hh-research.loc:3000 pnpm --filter api run openapi:export`) |
+См. `apps/api/.env.example`: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ERRORS_CHAT_ID`, `TELEGRAM_VACANCY_DIGEST_LIMIT`.
 
-OpenAPI UI в режиме разработки: `http://localhost:3000/docs` (Swagger; префикс API остаётся `/api/...`).
+## Команды
+
+| Команда                                | Назначение                             |
+| -------------------------------------- | -------------------------------------- |
+| `pnpm dev`                             | API + dashboard + landing              |
+| `pnpm build`                           | Сборка всех пакетов                    |
+| `pnpm lint` / `pnpm check-types`       | Линт и типы                            |
+| `pnpm format` / `pnpm format:check`    | Prettier                               |
+| `pnpm --filter api run openapi:export` | Экспорт OpenAPI (нужен запущенный API) |
+
+## Качество кода
+
+Перед коммитом: `pnpm lint && pnpm format:check && pnpm check-types`.
+
+ESLint: `@repo/eslint-config` — `vue` (dashboard FSD), `nuxt` (landing), `ui`, `nest` (api).

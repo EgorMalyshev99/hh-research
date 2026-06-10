@@ -35,3 +35,10 @@ export const LlmProvidersStatusSchema = z.object({
 })
 
 export type LlmProvidersStatus = z.infer<typeof LlmProvidersStatusSchema>
+
+export const LlmScoreResponseSchema = z.object({
+  score: z.number().min(0).max(100),
+  reason: z.string(),
+})
+
+export type LlmScoreResponse = z.infer<typeof LlmScoreResponseSchema>

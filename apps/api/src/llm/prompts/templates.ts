@@ -43,3 +43,16 @@ ${vacancy}
 
 Только текст письма, без markdown и без эмодзи, от первого лица. Объём примерно 120–200 слов для medium.`
 }
+
+export function buildResumeAnalysisPrompt(vacancyText: string, resumeText: string): string {
+  return `Ты HR-аналитик. Сопоставь резюме кандидата с вакансией. Оцени соответствие от 0 до 100.
+
+РЕЗЮМЕ:
+${resumeText}
+
+ВАКАНСИЯ:
+${vacancyText}
+
+Ответь строго JSON без markdown:
+{"score": <число 0-100>, "reason": "<краткое обоснование>", "highlights": ["<сильное совпадение>", "..."]}`
+}

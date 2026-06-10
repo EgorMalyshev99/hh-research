@@ -1,0 +1,9 @@
+dist/
+node_modules/
+.nuxt/
+.output/
+coverage/
+apps/api/openapi/
+apps/api/drizzle/meta/
+pnpm-lock.yaml
+*.plan.md

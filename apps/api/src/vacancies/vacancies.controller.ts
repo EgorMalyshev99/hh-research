@@ -8,19 +8,26 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
+  Query,
   Req,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
-import { LlmRuntimeContextSchema } from '@repo/shared'
+import {
+  AnalyzeResumeBodySchema,
+  LlmRuntimeContextSchema,
+  VacancyCreateSchema,
+  VacancyListQuerySchema,
+  VacancyUpdateSchema,
+} from '@repo/shared'
 import type { Request } from 'express'
 import { z } from 'zod'
 
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
-import type { VacancyRecord } from '../database/schema/index.js'
+import { Roles } from '../common/decorators/roles.decorator.js'
 import { LlmService } from '../llm/llm.service.js'
-import { ResumesService } from '../resumes/resumes.service.js'
 
-import { VacanciesService } from './vacancies.service.js'
+import { mapVacancyRow, VacanciesService } from './vacancies.service.js'
 
 @ApiTags('vacancies')
 @ApiBearerAuth('access-token')
@@ -28,121 +35,172 @@ import { VacanciesService } from './vacancies.service.js'
 export class VacanciesController {
   constructor(
     private vacanciesService: VacanciesService,
-    private resumesService: ResumesService,
     private llmService: LlmService
   ) {}
 
   @Get()
-  async list(@Req() req: Request & { user: JwtPayload }) {
-    const rows = await this.vacanciesService.list(req.user.sub)
-    return rows.map((r) => this.mapRow(r))
+  @Roles('job_seeker', 'admin')
+  async listCatalog(@Req() req: Request & { user: JwtPayload }, @Query() query: unknown) {
+    const parsed = VacancyListQuerySchema.safeParse(query ?? {})
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
+    const rows = await this.vacanciesService.listCatalog(req.user.sub, parsed.data)
+    return rows.map((r) => mapVacancyRow(r, r.userState))
   }
 
   @Get(':id')
-  async get(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
-    const r = await this.vacanciesService.getById(req.user.sub, id)
-    return this.mapRow(r)
+  @Roles('job_seeker', 'admin')
+  async getCatalog(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
+    const row = await this.vacanciesService.getCatalogById(req.user.sub, id)
+    return mapVacancyRow(row, row.userState)
   }
 
   @Patch(':id/viewed')
+  @Roles('job_seeker')
   async viewed(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
-    const r = await this.vacanciesService.markViewed(req.user.sub, id)
-    return this.mapRow(r)
+    await this.vacanciesService.markViewed(req.user.sub, id)
+    const row = await this.vacanciesService.getCatalogById(req.user.sub, id)
+    return mapVacancyRow(row, row.userState)
   }
 
   @Patch(':id/applied')
+  @Roles('job_seeker')
   async applied(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
-    const r = await this.vacanciesService.markApplied(req.user.sub, id)
-    return this.mapRow(r)
+    await this.vacanciesService.markApplied(req.user.sub, id)
+    const row = await this.vacanciesService.getCatalogById(req.user.sub, id)
+    return mapVacancyRow(row, row.userState)
   }
 
   @Delete(':id')
-  async remove(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
+  @Roles('job_seeker')
+  async hide(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
     await this.vacanciesService.hide(req.user.sub, id)
     return { ok: true }
   }
 
+  @Post(':id/analyze-resume')
+  @Roles('job_seeker')
+  async analyzeResume(
+    @Req() req: Request & { user: JwtPayload },
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown
+  ) {
+    const parsed = AnalyzeResumeBodySchema.safeParse(body)
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
+
+    const provider = parsed.data.llmProvider ?? 'gemini'
+    const llmCtxParsed = LlmRuntimeContextSchema.safeParse({
+      provider,
+      model: parsed.data.llmModel?.trim() || defaultLlmModel(provider),
+    })
+    if (!llmCtxParsed.success) throw new BadRequestException(llmCtxParsed.error.flatten())
+
+    const vacancy = await this.vacanciesService.getCatalogById(req.user.sub, id)
+    const analysis = await this.llmService.analyzeResumeMatch(
+      buildVacancyText(vacancy.data),
+      parsed.data.resumeText,
+      llmCtxParsed.data
+    )
+    await this.vacanciesService.setUserAnalysis(req.user.sub, id, {
+      score: analysis.score,
+      scoreReason: analysis.reason,
+    })
+    const updated = await this.vacanciesService.getCatalogById(req.user.sub, id)
+    return {
+      ...analysis,
+      vacancy: mapVacancyRow(updated, updated.userState),
+    }
+  }
+
   @Post(':id/cover-letter')
+  @Roles('job_seeker')
   async coverLetter(
     @Req() req: Request & { user: JwtPayload },
     @Param('id', ParseIntPipe) id: number,
     @Body() body: unknown
   ) {
     const BodySchema = z.object({
-      resumeId: z.number().int().positive(),
+      resumeText: z.string().min(50).max(50_000),
       llmProvider: z.enum(['gemini', 'openrouter', 'groq']).optional(),
       llmModel: z.string().min(1).optional(),
     })
     const parsed = BodySchema.safeParse(body)
-    if (!parsed.success) {
-      throw new BadRequestException(parsed.error.flatten())
-    }
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
+
     const provider = parsed.data.llmProvider ?? 'gemini'
     const llmCtxParsed = LlmRuntimeContextSchema.safeParse({
       provider,
       model: parsed.data.llmModel?.trim() || defaultLlmModel(provider),
     })
-    if (!llmCtxParsed.success) {
-      throw new BadRequestException(llmCtxParsed.error.flatten())
-    }
+    if (!llmCtxParsed.success) throw new BadRequestException(llmCtxParsed.error.flatten())
 
-    const vacancy = await this.vacanciesService.getById(req.user.sub, id)
-    const resume = await this.resumesService.getById(req.user.sub, parsed.data.resumeId)
+    const vacancy = await this.vacanciesService.getCatalogById(req.user.sub, id)
     const coverLetter = await this.llmService.generateCoverLetter(
-      buildVacancyTextForLlm(vacancy),
-      buildResumeText(resume),
+      buildVacancyText(vacancy.data),
+      parsed.data.resumeText,
       { tone: 'friendly', length: 'medium', language: 'ru' },
       llmCtxParsed.data
     )
-    const updated = await this.vacanciesService.setCoverLetter(req.user.sub, id, coverLetter)
-    return this.mapRow(updated)
-  }
-
-  private mapRow(r: VacancyRecord) {
-    return {
-      id: r.id,
-      hhId: r.hhId,
-      data: r.data,
-      score: r.score,
-      scoreReason: r.scoreReason,
-      isRelevant: r.isRelevant,
-      coverLetter: r.coverLetter,
-      processedAt: r.processedAt?.toISOString() ?? null,
-      isViewed: r.isViewed,
-      isApplied: r.isApplied,
-      createdAt: r.createdAt.toISOString(),
-    }
+    await this.vacanciesService.setCoverLetter(req.user.sub, id, coverLetter)
+    const updated = await this.vacanciesService.getCatalogById(req.user.sub, id)
+    return mapVacancyRow(updated, updated.userState)
   }
 }
 
-function buildVacancyTextForLlm(vacancy: VacancyRecord): string {
-  const data = vacancy.data
-  const parts = [`${data.name}`, `Работодатель: ${data.employer.name}`, `Регион: ${data.area.name}`]
-  if (data.snippet?.requirement) parts.push(`Требования: ${data.snippet.requirement}`)
-  if (data.snippet?.responsibility) parts.push(`Обязанности: ${data.snippet.responsibility}`)
-  return parts.join('\n\n')
+@ApiTags('my-vacancies')
+@ApiBearerAuth('access-token')
+@Controller('my-vacancies')
+export class MyVacanciesController {
+  constructor(private vacanciesService: VacanciesService) {}
+
+  @Get()
+  @Roles('employer')
+  async list(@Req() req: Request & { user: JwtPayload }) {
+    const rows = await this.vacanciesService.listMine(req.user.sub)
+    return rows.map((r) => mapVacancyRow(r, null))
+  }
+
+  @Post()
+  @Roles('employer')
+  async create(@Req() req: Request & { user: JwtPayload }, @Body() body: unknown) {
+    const parsed = VacancyCreateSchema.safeParse(body)
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
+    const row = await this.vacanciesService.createManual(req.user.sub, parsed.data)
+    return mapVacancyRow(row, null)
+  }
+
+  @Put(':id')
+  @Roles('employer')
+  async update(
+    @Req() req: Request & { user: JwtPayload },
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown
+  ) {
+    const parsed = VacancyUpdateSchema.safeParse(body)
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
+    const row = await this.vacanciesService.updateManual(req.user.sub, id, parsed.data)
+    return mapVacancyRow(row, null)
+  }
+
+  @Delete(':id')
+  @Roles('employer')
+  async remove(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
+    await this.vacanciesService.deleteManual(req.user.sub, id)
+    return { ok: true }
+  }
 }
 
-function buildResumeText(resume: {
+function buildVacancyText(data: {
   title: string
-  skills: string
-  experienceSummary: string
-  experienceYears: number
-  education: string | null
-  desiredSalary: number | null
-  desiredSalaryCurrency: string | null
+  employer: { name: string }
+  location: { name: string }
+  description: string
 }): string {
-  const parts = [
-    `Должность: ${resume.title}`,
-    `Навыки: ${resume.skills}`,
-    `Опыт (лет): ${resume.experienceYears}`,
-    `Опыт: ${resume.experienceSummary}`,
-  ]
-  if (resume.education) parts.push(`Образование: ${resume.education}`)
-  if (resume.desiredSalary) {
-    parts.push(`Ожидаемая зарплата: ${resume.desiredSalary} ${resume.desiredSalaryCurrency ?? ''}`.trim())
-  }
-  return parts.join('\n')
+  return [
+    `${data.title}`,
+    `Работодатель: ${data.employer.name}`,
+    `Регион: ${data.location.name}`,
+    data.description,
+  ].join('\n\n')
 }
 
 function defaultLlmModel(provider: 'gemini' | 'openrouter' | 'groq'): string {

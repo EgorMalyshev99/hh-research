@@ -1,6 +1,6 @@
 ---
-description: FSD-правила, Vue 3, axios, формы (shadcn-vue + vee-validate по плану), SSE. Читать при работе с apps/web/.
-globs: apps/web/**/*
+description: FSD-правила, Vue 3, axios, формы (@repo/ui + vee-validate), SSE. Читать при работе с apps/dashboard/.
+globs: apps/dashboard/**/*
 alwaysApply: false
 ---
 
@@ -16,8 +16,7 @@ src/
   features/     — бизнес-действия (run-search, …)
   entities/     — бизнес-сущности (auth, vacancy, settings, blacklist, history, stats)
   shared/       — api, config, lib без доменной логики
-  components/   — shadcn-vue (CLI), в eslint-plugin-boundaries игнорируется
-  lib/          — cn() и пр., игнорируется boundaries
+  components/   — domain-компоненты (не shadcn), в eslint boundaries игнорируется
 ```
 
 **Правило импортов** (enforced eslint-plugin-boundaries):
@@ -93,7 +92,7 @@ export const vacancyApi = {
 
 ### Обязательный флоу
 
-1. **Импорты:** `import { Field as VeeField } from 'vee-validate'` и **`toTypedSchema`** из `@vee-validate/zod`. UI-**`Field`**, **`FieldLabel`**, **`FieldError`**, **`Input`**, **`Button`**, **`Card`** и т.д. — из **`@/components/ui/...`** (генерация `pnpm dlx shadcn-vue@latest add …`, алиасы в `components.json`).
+1. **Импорты:** UI из **`@repo/ui`** (`Button`, `Field`, `Input`, …). `Field as VeeField` из vee-validate.
 2. **Схема:** zod из `@repo/shared` (`LoginSchema`, `RegisterSchema`, …): `const formSchema = toTypedSchema(LoginSchema)`.
 3. **`useForm`:** `validationSchema: formSchema`, при необходимости `initialValues` / `resetForm` — как в официальном примере.
 4. **Разметка поля:** `<VeeField name="..." v-slot="{ field, errors }">` → внутри shadcn **`<Field :data-invalid="!!errors.length">`** → **`<FieldLabel>`** → **`<Input v-bind="field" :aria-invalid="!!errors.length" />`** → **`<FieldError v-if="errors.length" :errors="errors" />`**.
@@ -184,9 +183,8 @@ export const useVacancyStore = defineStore('vacancy', () => {
 
 ## shadcn-vue
 
-- Инициализация: `pnpm dlx shadcn-vue@latest init` (Tailwind v4, Reka UI).
-- Формы: `pnpm dlx shadcn-vue@latest add field input label button card textarea select` — по экранам.
-- Документация форм: https://www.shadcn-vue.com/docs/forms/vee-validate
+- Компоненты в **`packages/ui`**: `pnpm dlx shadcn-vue@latest add …` из каталога `packages/ui`
+- В dashboard: `import { Button } from '@repo/ui'`, стили: `import '@repo/ui/globals.css'` в `main.ts`
 
 ## Импорты
 

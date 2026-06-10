@@ -8,6 +8,7 @@ import { Logger } from 'nestjs-pino'
 import { AppModule } from './app.module.js'
 import { requestIdMiddleware } from './common/middleware/request-id.middleware.js'
 import type { AppConfig } from './config/config.schema.js'
+import { resolveCorsOrigins } from './config/cors-origins.js'
 import { buildSwaggerDocument } from './openapi/swagger-document.js'
 
 async function bootstrap() {
@@ -21,9 +22,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api')
 
   const config = app.get(ConfigService<AppConfig, true>)
-  const frontendUrl = config.getOrThrow('FRONTEND_URL')
+  const corsOrigins = resolveCorsOrigins(
+    config.getOrThrow('DASHBOARD_URL'),
+    config.getOrThrow('LANDING_URL'),
+    config.get('CORS_ORIGINS')
+  )
   app.enableCors({
-    origin: frontendUrl,
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],

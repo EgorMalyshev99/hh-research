@@ -1,0 +1,39 @@
+---
+description: Nuxt landing — структура каталогов, @repo/ui, env. Читать при работе с apps/landing/.
+globs: apps/landing/**/*
+alwaysApply: false
+---
+
+# Landing (Nuxt 4) — правила
+
+## Структура (не FSD)
+
+```txt
+app/app.vue              — root layout
+app/pages/               — маршруты
+app/components/marketing/ — Hero, Header, Footer, …
+app/composables/         — useSiteConfig и пр.
+```
+
+## Импорты
+
+| Слой                        | Может импортировать                                           |
+| --------------------------- | ------------------------------------------------------------- |
+| `app/pages/`                | `app/components/marketing/*`, `app/composables/*`, `@repo/ui` |
+| `app/components/marketing/` | `app/composables/*`, `@repo/ui`                               |
+| `app/composables/`          | Nuxt auto-imports, без `.vue`                                 |
+
+## UI и стили
+
+- `import { Button, Card } from '@repo/ui'`
+- `@repo/ui/globals.css` в `nuxt.config.ts` → `css: ['@repo/ui/globals.css']`
+
+## Env
+
+- `NUXT_PUBLIC_APP_HOST`, `NUXT_PUBLIC_APP_PORT` — dev server
+- `NUXT_PUBLIC_DASHBOARD_URL` — CTA «Войти» → `${dashboardUrl}/login`
+- Не хардкодить URL в компонентах — `useSiteConfig()`
+
+## ESLint
+
+`@repo/eslint-config/nuxt` — слои app → pages → components → composables.

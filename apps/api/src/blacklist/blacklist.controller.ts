@@ -5,8 +5,8 @@ import type { Request } from 'express'
 
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
 
-import { CreateBlacklistEntryBodyDto } from './dto/blacklist.dto.js'
 import { BlacklistService } from './blacklist.service.js'
+import { CreateBlacklistEntryBodyDto } from './dto/blacklist.dto.js'
 
 @ApiTags('blacklist')
 @ApiBearerAuth('access-token')

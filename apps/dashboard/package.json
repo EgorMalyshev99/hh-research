@@ -1,0 +1,45 @@
+{
+  "name": "dashboard",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vue-tsc --noEmit && vite build",
+    "dev": "vite",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "check-types": "vue-tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@phosphor-icons/vue": "^2.2.1",
+    "@repo/shared": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@tanstack/vue-query": "^5.100.1",
+    "@tanstack/vue-table": "^8.21.3",
+    "@tanstack/vue-virtual": "^3.13.24",
+    "@vee-validate/zod": "^4.15.1",
+    "@vueuse/core": "^14.2.1",
+    "axios": "^1.15.2",
+    "highcharts": "^12.6.0",
+    "highcharts-vue": "^2.0.1",
+    "pinia": "^3.0.4",
+    "vee-validate": "^4.15.1",
+    "vue": "^3.5.35",
+    "vue-router": "^5.0.6",
+    "vue-sonner": "^2.0.9",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@tailwindcss/vite": "^4.2.4",
+    "@types/node": "^25.9.2",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "eslint": "^10.2.1",
+    "tailwindcss": "^4.2.4",
+    "typescript": "5.9.3",
+    "vite": "^8.0.16",
+    "vue-tsc": "^3.3.4"
+  }
+}

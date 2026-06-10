@@ -4,7 +4,7 @@ import { cleanupOpenApiDoc } from 'nestjs-zod'
 
 export function buildSwaggerDocument(app: INestApplication) {
   const config = new DocumentBuilder()
-    .setTitle('hh-research API')
+    .setTitle('job-research API')
     .setDescription('REST API локального ассистента поиска работы')
     .setVersion('1.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')

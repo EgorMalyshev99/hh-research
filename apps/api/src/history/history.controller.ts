@@ -4,12 +4,14 @@ import { and, count, desc, eq } from 'drizzle-orm'
 import type { Request } from 'express'
 
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
+import { Roles } from '../common/decorators/roles.decorator.js'
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
-import { searchRuns, vacancies } from '../database/schema/index.js'
+import { vacancyImportRuns, vacancyUserStates } from '../database/schema/index.js'
 
 @ApiTags('history')
 @ApiBearerAuth('access-token')
 @Controller('history')
+@Roles('admin')
 export class HistoryController {
   constructor(@Inject(DRIZZLE) private db: DrizzleDb) {}
 
@@ -17,17 +19,19 @@ export class HistoryController {
   async list(@Req() req: Request & { user: JwtPayload }) {
     const rows = await this.db
       .select()
-      .from(searchRuns)
-      .where(eq(searchRuns.userId, req.user.sub))
-      .orderBy(desc(searchRuns.startedAt))
+      .from(vacancyImportRuns)
+      .where(eq(vacancyImportRuns.userId, req.user.sub))
+      .orderBy(desc(vacancyImportRuns.startedAt))
     return rows.map((r) => ({
       id: r.id,
+      provider: r.provider,
+      limitRequested: r.limitRequested,
+      imported: r.imported,
+      skipped: r.skipped,
+      status: r.status,
+      errorMessage: r.errorMessage,
       startedAt: r.startedAt.toISOString(),
       finishedAt: r.finishedAt?.toISOString() ?? null,
-      status: r.status,
-      totalFound: r.totalFound,
-      aboveThreshold: r.aboveThreshold,
-      errorMessage: r.errorMessage,
     }))
   }
 }
@@ -35,24 +39,25 @@ export class HistoryController {
 @ApiTags('stats')
 @ApiBearerAuth('access-token')
 @Controller('stats')
+@Roles('job_seeker', 'admin')
 export class StatsController {
   constructor(@Inject(DRIZZLE) private db: DrizzleDb) {}
 
   @Get()
   async get(@Req() req: Request & { user: JwtPayload }) {
     const uid = req.user.sub
-    const mine = and(eq(vacancies.userId, uid), eq(vacancies.hidden, false))
+    const mine = and(eq(vacancyUserStates.userId, uid), eq(vacancyUserStates.hidden, false))
 
     const [totalRow, viewedRow, appliedRow] = await Promise.all([
-      this.db.select({ n: count() }).from(vacancies).where(mine),
+      this.db.select({ n: count() }).from(vacancyUserStates).where(mine),
       this.db
         .select({ n: count() })
-        .from(vacancies)
-        .where(and(mine, eq(vacancies.isViewed, true))),
+        .from(vacancyUserStates)
+        .where(and(mine, eq(vacancyUserStates.isViewed, true))),
       this.db
         .select({ n: count() })
-        .from(vacancies)
-        .where(and(mine, eq(vacancies.isApplied, true))),
+        .from(vacancyUserStates)
+        .where(and(mine, eq(vacancyUserStates.isApplied, true))),
     ])
 
     return {

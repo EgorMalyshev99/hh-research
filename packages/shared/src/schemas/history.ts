@@ -1,15 +1,22 @@
 import { z } from 'zod'
 
-export const SearchRunSchema = z.object({
+export const VacancyImportRunHistorySchema = z.object({
   id: z.number(),
+  provider: z.string(),
+  limitRequested: z.number(),
+  imported: z.number(),
+  skipped: z.number(),
+  status: z.string(),
+  errorMessage: z.string().nullable(),
   startedAt: z.string().datetime(),
   finishedAt: z.string().datetime().nullable(),
-  status: z.string(),
-  totalFound: z.number(),
-  aboveThreshold: z.number(),
-  errorMessage: z.string().nullable(),
 })
 
-export const SearchRunListSchema = z.array(SearchRunSchema)
+export const VacancyImportRunHistoryListSchema = z.array(VacancyImportRunHistorySchema)
 
-export type SearchRun = z.infer<typeof SearchRunSchema>
+export type VacancyImportRunHistory = z.infer<typeof VacancyImportRunHistorySchema>
+
+/** @deprecated этап 2 — используйте VacancyImportRunHistorySchema */
+export const SearchRunSchema = VacancyImportRunHistorySchema
+export const SearchRunListSchema = VacancyImportRunHistoryListSchema
+export type SearchRun = VacancyImportRunHistory

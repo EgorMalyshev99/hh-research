@@ -31,4 +31,4 @@ alwaysApply: false
 
 ## URL
 
-Origin фронта для CORS — **`FRONTEND_URL`** из `ConfigService` / `apps/api/.env` (см. `main.ts`).
+Origin фронтов для CORS — **`DASHBOARD_URL`**, **`LANDING_URL`**, опц. **`CORS_ORIGINS`** из `ConfigService` / `apps/api/.env` (см. `main.ts`, `cors-origins.ts`).

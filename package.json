@@ -1,5 +1,5 @@
 {
-  "name": "hh-research",
+  "name": "job-research",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -8,9 +8,13 @@
     "api:dev": "turbo run dev --filter=api",
     "api:build": "turbo run build --filter=api",
     "api:lint": "turbo run lint --filter=api",
-    "web:dev": "turbo run dev --filter=web",
-    "web:build": "turbo run build --filter=web",
-    "web:lint": "turbo run lint --filter=web",
+    "dashboard:dev": "turbo run dev --filter=dashboard",
+    "dashboard:build": "turbo run build --filter=dashboard",
+    "dashboard:lint": "turbo run lint --filter=dashboard",
+    "landing:dev": "turbo run dev --filter=landing",
+    "landing:build": "turbo run build --filter=landing",
+    "landing:lint": "turbo run lint --filter=landing",
+    "ui:lint": "turbo run lint --filter=@repo/ui",
     "check-types": "turbo run check-types",
     "format": "prettier --write \"**/*.{ts,vue,md,json}\"",
     "format:check": "prettier --check \"**/*.{ts,vue,md,json}\""
@@ -31,6 +35,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "@nestjs/core",
+      "@parcel/watcher",
+      "@scarf/scarf",
       "esbuild",
       "unrs-resolver",
       "vue-demi"
