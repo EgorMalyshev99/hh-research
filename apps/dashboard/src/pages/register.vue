@@ -1,7 +1,10 @@
 <template>
   <div class="bg-muted/40 flex min-h-screen items-center justify-center p-4">
     <Card class="w-full max-w-md shadow-md">
-      <CardHeader>
+      <CardHeader class="space-y-4">
+        <div class="flex justify-center">
+          <SiteLogo size="md" priority />
+        </div>
         <CardTitle class="text-center text-2xl"> Регистрация </CardTitle>
       </CardHeader>
       <CardContent>
@@ -75,6 +78,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/entities/auth'
 import { showApiMutationErrorToast } from '@/shared/lib/api-error'
+import { SiteLogo } from '@/shared/ui'
 
 const route = useRoute()
 const router = useRouter()

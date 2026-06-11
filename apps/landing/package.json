@@ -13,6 +13,7 @@
     "check-types": "nuxt prepare && nuxt typecheck"
   },
   "dependencies": {
+    "@nuxt/image": "^2.0.0",
     "@phosphor-icons/vue": "^2.2.1",
     "@repo/ui": "workspace:*",
     "nuxt": "^4.4.8",

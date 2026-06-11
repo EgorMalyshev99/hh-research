@@ -2,8 +2,10 @@
   <div class="bg-background min-h-screen">
     <div class="flex min-h-screen">
       <aside class="bg-card text-card-foreground flex w-56 shrink-0 flex-col border-r" aria-label="Навигация">
-        <div class="space-y-3 border-b px-4 py-4">
-          <span class="block text-lg font-semibold tracking-tight">job-research</span>
+        <div class="border-b px-4 py-4">
+          <RouterLink to="/" class="inline-flex items-center" aria-label="На главную">
+            <SiteLogo size="sm" priority />
+          </RouterLink>
         </div>
         <nav class="flex flex-1 flex-col gap-0.5 p-2">
           <RouterLink
@@ -42,6 +44,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/entities/auth'
+import { SiteLogo } from '@/shared/ui'
 
 const route = useRoute()
 const router = useRouter()

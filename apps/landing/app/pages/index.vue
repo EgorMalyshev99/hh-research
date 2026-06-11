@@ -2,7 +2,9 @@
   <section class="relative overflow-hidden px-6 py-24 md:py-32">
     <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,#6366f133,transparent_60%)]" />
     <div class="relative mx-auto max-w-4xl text-center">
-      <p class="text-primary mb-4 text-sm font-medium tracking-widest uppercase">job-research</p>
+      <div class="mb-6 flex justify-center">
+        <MarketingSiteLogo size="lg" priority />
+      </div>
       <h1 class="text-foreground mb-6 text-4xl font-bold tracking-tight md:text-6xl">
         Поиск работы<br />с умным ассистентом
       </h1>
