@@ -1,5 +1,5 @@
 ---
-description: JWT, refresh-cookie, публичные маршруты, стратегия Passport.
+description: JWT, localStorage tokens, публичные маршруты, стратегия Passport.
 globs: apps/api/src/auth/**/*
 alwaysApply: false
 ---
@@ -15,20 +15,34 @@ alwaysApply: false
 
 ## Токены
 
+- **Access + refresh** возвращаются в JSON (`{ accessToken, refreshToken }`) на login/register/refresh.
+- Dashboard хранит оба в `localStorage` (`access_token`, `refresh_token`) через `shared/lib/auth-storage.ts`.
 - **Access**: `Authorization: Bearer <jwt>`, короткий TTL (env `JWT_ACCESS_EXPIRES_IN`).
-- **Refresh**: httpOnly cookie `refresh_token`, отдельный секрет `JWT_REFRESH_SECRET`, подпись через `JwtService` с `expiresIn` из `JWT_REFRESH_EXPIRES_IN`.
-- В БД хранится **bcrypt-хэш** refresh-токена (`refresh_tokens.token_hash`); при logout сравнение через `bcrypt.compare`, не повторный hash.
+- **Refresh**: body `{ refreshToken }` на `POST /auth/refresh` и `POST /auth/logout`; отдельный секрет `JWT_REFRESH_SECRET`.
+- В БД хранится **bcrypt-хэш** refresh-токена (`refresh_tokens.token_hash`); `expiresAt` из `JWT_REFRESH_EXPIRES_IN`.
+- При смене роли (`updateRole`) все refresh-токены пользователя удаляются.
+
+> **Trade-off:** refresh в `localStorage` уязвим к XSS (в отличие от httpOnly cookie). Компенсация — короткий TTL access token, CSP, санитизация.
 
 ## Passport JWT
 
+- `JwtStrategy.validate` загружает пользователя из БД; при отсутствии — `401`.
 - `JwtStrategy` читает access JWT из:
   1. заголовка `Authorization: Bearer`,
   2. query `access_token` (для `EventSource` / SSE, где нельзя задать заголовки).
 
 ## Payload
 
-`JwtPayload`: `{ sub: number; email: string }` — `sub` это `users.id` (serial).
+`JwtPayload`: `{ sub: number; email: string; role }` — `sub` это `users.id` (serial); **role берётся из БД**, не из JWT.
 
 ## URL
 
 Origin фронтов для CORS — **`DASHBOARD_URL`**, **`LANDING_URL`**, опц. **`CORS_ORIGINS`** из `ConfigService` / `apps/api/.env` (см. `main.ts`, `cors-origins.ts`).
+
+## Первый admin
+
+```bash
+pnpm api:create-admin -- --email admin@example.com --name "Admin" --password 'Secure1!'
+```
+
+Флаг `--promote` — повысить существующего пользователя до admin.

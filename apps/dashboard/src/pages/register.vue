@@ -26,6 +26,11 @@
             <Field :data-invalid="!!errors.length">
               <FieldLabel :for="field.name"> Пароль </FieldLabel>
               <Input v-bind="field" :id="field.name" type="password" :aria-invalid="!!errors.length" />
+              <div class="mt-2 flex flex-wrap gap-2">
+                <Badge v-for="c in passwordCriteria" :key="c.id" :variant="c.met ? 'success' : 'destructive'">
+                  {{ c.label }}
+                </Badge>
+              </div>
               <FieldError :errors="errors" />
             </Field>
           </VeeField>
@@ -61,13 +66,15 @@
 </template>
 
 <script setup lang="ts">
-import { RegisterSchema } from '@repo/shared'
-import { Button, Card, CardContent, CardHeader, CardTitle, Field, FieldError, FieldLabel, Input } from '@repo/ui'
+import { checkPasswordCriteria, RegisterSchema } from '@repo/shared'
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Field, FieldError, FieldLabel, Input } from '@repo/ui'
 import { toTypedSchema } from '@vee-validate/zod'
-import { Field as VeeField, useForm } from 'vee-validate'
+import { Field as VeeField, useFieldValue, useForm } from 'vee-validate'
+import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
-import { useAuthStore } from '@/entities/auth/model/auth.store'
+import { useAuthStore } from '@/entities/auth'
+import { showApiMutationErrorToast } from '@/shared/lib/api-error'
 
 const route = useRoute()
 const router = useRouter()
@@ -78,9 +85,16 @@ const { handleSubmit, isSubmitting } = useForm({
   initialValues: { role: 'job_seeker' as const },
 })
 
+const passwordValue = useFieldValue<string>('password')
+const passwordCriteria = computed(() => checkPasswordCriteria(passwordValue.value ?? ''))
+
 const onSubmit = handleSubmit(async (values) => {
-  await authStore.register(values)
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null
-  await router.push(redirect?.startsWith('/') ? redirect : '/')
+  try {
+    await authStore.register(values)
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null
+    await router.push(redirect?.startsWith('/') ? redirect : '/')
+  } catch (e) {
+    showApiMutationErrorToast(e, 'Не удалось зарегистрироваться')
+  }
 })
 </script>

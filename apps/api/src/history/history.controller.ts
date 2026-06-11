@@ -1,10 +1,12 @@
 import { Controller, Get, Inject, Req } from '@nestjs/common'
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiOkResponse, ApiTags, ApiUnauthorizedResponse } from '@nestjs/swagger'
 import { and, count, desc, eq } from 'drizzle-orm'
 import type { Request } from 'express'
 
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
 import { Roles } from '../common/decorators/roles.decorator.js'
+import { ApiErrorDto } from '../common/dto/api-error.dto.js'
+import { VacancyImportRunHistoryListDto } from '../common/dto/domain.dto.js'
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
 import { vacancyImportRuns, vacancyUserStates } from '../database/schema/index.js'
 
@@ -16,6 +18,8 @@ export class HistoryController {
   constructor(@Inject(DRIZZLE) private db: DrizzleDb) {}
 
   @Get()
+  @ApiOkResponse({ type: VacancyImportRunHistoryListDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async list(@Req() req: Request & { user: JwtPayload }) {
     const rows = await this.db
       .select()
@@ -44,6 +48,7 @@ export class StatsController {
   constructor(@Inject(DRIZZLE) private db: DrizzleDb) {}
 
   @Get()
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async get(@Req() req: Request & { user: JwtPayload }) {
     const uid = req.user.sub
     const mine = and(eq(vacancyUserStates.userId, uid), eq(vacancyUserStates.hidden, false))

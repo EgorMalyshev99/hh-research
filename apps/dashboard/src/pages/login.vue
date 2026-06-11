@@ -50,12 +50,15 @@
 
 <script setup lang="ts">
 import { LoginSchema } from '@repo/shared'
-import { Button, Card, CardContent, CardHeader, CardTitle , Field, FieldError, FieldLabel , Input  } from '@repo/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Field, FieldError, FieldLabel, Input, toast } from '@repo/ui'
 import { toTypedSchema } from '@vee-validate/zod'
 import { Field as VeeField, useForm } from 'vee-validate'
+import { onMounted } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
-import { useAuthStore } from '@/entities/auth/model/auth.store'
+import { useAuthStore } from '@/entities/auth'
+import { AUTH_ERROR_SESSION_KEY } from '@/shared/api/http'
+import { showApiMutationErrorToast } from '@/shared/lib/api-error'
 
 const route = useRoute()
 const router = useRouter()
@@ -65,9 +68,21 @@ const { handleSubmit, isSubmitting } = useForm({
   validationSchema: toTypedSchema(LoginSchema),
 })
 
+onMounted(() => {
+  const msg = sessionStorage.getItem(AUTH_ERROR_SESSION_KEY)
+  if (msg) {
+    sessionStorage.removeItem(AUTH_ERROR_SESSION_KEY)
+    toast.error(msg)
+  }
+})
+
 const onSubmit = handleSubmit(async (values) => {
-  await authStore.login(values)
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null
-  await router.push(redirect?.startsWith('/') ? redirect : '/')
+  try {
+    await authStore.login(values)
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : null
+    await router.push(redirect?.startsWith('/') ? redirect : '/')
+  } catch (e) {
+    showApiMutationErrorToast(e, 'Не удалось войти')
+  }
 })
 </script>

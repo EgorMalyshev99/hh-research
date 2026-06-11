@@ -10,14 +10,14 @@
     "
   >
     <slot>
-      <ChevronUpIcon />
+      <PhCaretUp />
     </slot>
   </SelectScrollUpButton>
 </template>
 
 <script setup lang="ts">
+import { PhCaretUp } from '@phosphor-icons/vue'
 import { reactiveOmit } from '@vueuse/core'
-import { ChevronUpIcon } from 'lucide-vue-next'
 import type { SelectScrollUpButtonProps } from 'reka-ui'
 import { SelectScrollUpButton, useForwardProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'

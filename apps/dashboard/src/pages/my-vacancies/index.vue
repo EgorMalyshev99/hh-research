@@ -28,13 +28,13 @@
 </template>
 
 <script setup lang="ts">
-import { Button, Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@repo/ui'
+import { Button, Card, CardDescription, CardFooter, CardHeader, CardTitle, toast } from '@repo/ui'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { toast } from 'vue-sonner'
 
 import { useDeleteMyVacancyMutation, useMyVacanciesQuery } from '@/entities/vacancy'
 import DefaultLayout from '@/widgets/default-layout/DefaultLayout.vue'
+import { showApiMutationErrorToast } from '@/shared/lib/api-error'
 
 const { data, isPending, isError } = useMyVacanciesQuery()
 const { mutateAsync: deleteVacancy } = useDeleteMyVacancyMutation()
@@ -42,7 +42,11 @@ const { mutateAsync: deleteVacancy } = useDeleteMyVacancyMutation()
 const rows = computed(() => data.value ?? [])
 
 async function onDelete(id: number) {
-  await deleteVacancy(id)
-  toast.success('Вакансия удалена')
+  try {
+    await deleteVacancy(id)
+    toast.success('Вакансия удалена')
+  } catch (e) {
+    showApiMutationErrorToast(e, 'Не удалось удалить вакансию')
+  }
 }
 </script>

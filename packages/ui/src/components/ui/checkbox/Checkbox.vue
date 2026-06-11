@@ -20,7 +20,7 @@
       class="grid place-content-center text-current transition-none [&>svg]:size-3.5"
     >
       <slot v-bind="slotProps">
-        <CheckIcon />
+        <PhCheck />
       </slot>
     </CheckboxIndicator>
   </CheckboxRoot>
@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { reactiveOmit } from '@vueuse/core'
-import { CheckIcon } from 'lucide-vue-next'
+import { PhCheck } from '@phosphor-icons/vue'
 import type { CheckboxRootEmits, CheckboxRootProps } from 'reka-ui'
 import { CheckboxIndicator, CheckboxRoot, useForwardPropsEmits } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'

@@ -1,3 +1,5 @@
+export * from './lib/password-criteria'
+export * from './schemas/api-error'
 export * from './schemas/auth'
 export * from './schemas/user'
 export * from './schemas/vacancy'

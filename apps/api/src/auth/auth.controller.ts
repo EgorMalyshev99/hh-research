@@ -1,14 +1,42 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common'
-import { ApiBody, ApiTags } from '@nestjs/swagger'
-import { LoginSchema, RegisterSchema } from '@repo/shared'
-import type { Request, Response } from 'express'
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common'
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger'
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler'
+import { LoginSchema, LogoutBodySchema, RefreshBodySchema, RegisterSchema } from '@repo/shared'
+import type { Request } from 'express'
 import { z } from 'zod'
 
 import { Public } from '../common/decorators/public.decorator.js'
+import { ApiErrorDto } from '../common/dto/api-error.dto.js'
 import { UsersService } from '../users/users.service.js'
 
 import { AuthService } from './auth.service.js'
-import { LoginBodyDto, RegisterBodyDto } from './dto/auth.dto.js'
+import {
+  LoginBodyDto,
+  LogoutBodyDto,
+  RefreshBodyDto,
+  RegisterBodyDto,
+  TokensResponseDto,
+  UserResponseDto,
+} from './dto/auth.dto.js'
 import type { JwtPayload } from './strategies/jwt.strategy.js'
 
 const telegramConnectBodySchema = z.object({
@@ -24,57 +52,80 @@ export class AuthController {
   ) {}
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('register')
   @ApiBody({ type: RegisterBodyDto })
-  async register(@Body() body: unknown, @Res({ passthrough: true }) res: Response) {
-    const dto = RegisterSchema.parse(body)
-    const tokens = await this.authService.register(dto)
-    this.setRefreshCookie(res, tokens.refreshToken)
-    return { accessToken: tokens.accessToken }
+  @ApiOkResponse({ type: TokensResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  async register(@Body() body: unknown) {
+    const parsed = RegisterSchema.safeParse(body)
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten())
+    }
+    const tokens = await this.authService.register(parsed.data)
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiBody({ type: LoginBodyDto })
-  async login(@Body() body: unknown, @Res({ passthrough: true }) res: Response) {
-    const dto = LoginSchema.parse(body)
-    const tokens = await this.authService.login(dto)
-    this.setRefreshCookie(res, tokens.refreshToken)
-    return { accessToken: tokens.accessToken }
+  @ApiOkResponse({ type: TokensResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  async login(@Body() body: unknown) {
+    const parsed = LoginSchema.safeParse(body)
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten())
+    }
+    const tokens = await this.authService.login(parsed.data)
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Req() req: Request & { user: JwtPayload }, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.refresh_token as string | undefined
+  @ApiBearerAuth('access-token')
+  @ApiBody({ type: LogoutBodyDto })
+  @ApiNoContentResponse()
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  async logout(@Req() req: Request & { user: JwtPayload }, @Body() body: unknown) {
+    const parsed = LogoutBodySchema.safeParse(body ?? {})
+    const refreshToken = parsed.success ? parsed.data.refreshToken : undefined
     if (refreshToken) {
       await this.authService.logout(req.user.sub, refreshToken)
     }
-    res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'lax' })
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies?.refresh_token as string | undefined
-    if (!refreshToken) {
-      res.status(HttpStatus.UNAUTHORIZED).json({ message: 'Refresh-токен не найден' })
-      return
+  @ApiBody({ type: RefreshBodyDto })
+  @ApiOkResponse({ type: TokensResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  async refresh(@Body() body: unknown) {
+    const parsed = RefreshBodySchema.safeParse(body)
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten())
     }
+    const refreshToken = parsed.data.refreshToken
 
     const payload = this.authService.verifyRefreshToken(refreshToken)
     const tokens = await this.authService.refreshTokens(payload.sub, refreshToken)
-    this.setRefreshCookie(res, tokens.refreshToken)
-    return { accessToken: tokens.accessToken }
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }
   }
 
   @Get('me')
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async me(@Req() req: Request & { user: JwtPayload }) {
     const user = await this.usersService.findById(req.user.sub)
     if (!user) {
-      return null
+      throw new UnauthorizedException('Пользователь не найден')
     }
     return {
       id: user.id,
@@ -88,6 +139,9 @@ export class AuthController {
 
   @Post('telegram/connect')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('access-token')
+  @ApiNoContentResponse()
+  @ApiBadRequestResponse({ type: ApiErrorDto })
   async connectTelegram(@Req() req: Request & { user: JwtPayload }, @Body() body: unknown) {
     const parsed = telegramConnectBodySchema.safeParse(body)
     if (!parsed.success) {
@@ -99,15 +153,9 @@ export class AuthController {
 
   @Post('telegram/disconnect')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('access-token')
+  @ApiNoContentResponse()
   async disconnectTelegram(@Req() req: Request & { user: JwtPayload }) {
     await this.usersService.updateTelegramChatId(req.user.sub, null)
-  }
-
-  private setRefreshCookie(res: Response, refreshToken: string) {
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
   }
 }

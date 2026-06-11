@@ -46,13 +46,14 @@ UI-kit: `@repo/ui` — `import { Button } from '@repo/ui'`, стили `@repo/ui
 
 ## Команды
 
-| Команда                                | Назначение                             |
-| -------------------------------------- | -------------------------------------- |
-| `pnpm dev`                             | API + dashboard + landing              |
-| `pnpm build`                           | Сборка всех пакетов                    |
-| `pnpm lint` / `pnpm check-types`       | Линт и типы                            |
-| `pnpm format` / `pnpm format:check`    | Prettier                               |
-| `pnpm --filter api run openapi:export` | Экспорт OpenAPI (нужен запущенный API) |
+| Команда                          | Назначение                      |
+| -------------------------------- | ------------------------------- |
+| `pnpm dev`                       | API + dashboard + landing       |
+| `pnpm build`                     | Сборка всех пакетов             |
+| `pnpm lint` / `pnpm check-types` | Линт и типы                     |
+| `pnpm test` / `pnpm test:e2e`    | Vitest + Playwright (dashboard) |
+| `pnpm api:openapi:export`        | OpenAPI 3.1 JSON (offline)      |
+| `pnpm api:create-admin`          | Создание admin-пользователя     |
 
 ## Качество кода
 

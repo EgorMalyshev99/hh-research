@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { toast } from 'vue-sonner'
+import { toast } from '@repo/ui'
 
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
@@ -26,6 +26,12 @@ export function getApiErrorMessage(error: unknown): string {
 }
 
 export function showApiMutationErrorToast(error: unknown, title = 'Ошибка API'): void {
+  toast.error(title, {
+    description: getApiErrorMessage(error),
+  })
+}
+
+export function showApiQueryErrorToast(error: unknown, title = 'Не удалось загрузить данные'): void {
   toast.error(title, {
     description: getApiErrorMessage(error),
   })

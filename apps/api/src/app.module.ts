@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { APP_FILTER } from '@nestjs/core'
+import { ThrottlerModule } from '@nestjs/throttler'
 import { LoggerModule } from 'nestjs-pino'
 
 import { AuthModule } from './auth/auth.module.js'
@@ -32,6 +33,7 @@ import { VacancyImportModule } from './vacancy-import/vacancy-import.module.js'
             : undefined,
       },
     }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     DatabaseModule,
     AuthModule,
     UsersModule,

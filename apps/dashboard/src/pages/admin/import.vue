@@ -11,7 +11,8 @@
           <CardTitle>Запуск импорта</CardTitle>
         </CardHeader>
         <CardContent class="space-y-4">
-          <Field>
+          <p v-if="providersError" class="text-destructive text-sm">Не удалось загрузить провайдеры импорта</p>
+          <Field v-if="!providersError">
             <FieldLabel>Провайдер</FieldLabel>
             <select
               v-model="provider"
@@ -53,12 +54,12 @@
 
 <script setup lang="ts">
 import { Button, Card, CardContent, CardHeader, CardTitle, Field, FieldLabel, Input } from '@repo/ui'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useImportProvidersQuery, useRunVacancyImportMutation } from '@/entities/vacancy-import'
 import DefaultLayout from '@/widgets/default-layout/DefaultLayout.vue'
-import { getApiErrorMessage } from '@/shared/lib/api-error'
+import { getApiErrorMessage, showApiQueryErrorToast } from '@/shared/lib/api-error'
 
 const provider = ref<'trudvsem' | 'superjob'>('trudvsem')
 const limit = ref(50)
@@ -67,11 +68,15 @@ const regionCode = ref('')
 const keyword = ref('')
 const lastResult = ref<{ imported: number; skipped: number } | null>(null)
 
-const { data: providersData } = useImportProvidersQuery()
+const { data: providersData, isError: providersError, error: providersQueryError } = useImportProvidersQuery()
 const providers = computed(
   (): Array<{ id: 'trudvsem' | 'superjob'; label: string; enabled: boolean; hint?: string }> =>
     providersData.value ?? [{ id: 'trudvsem', label: 'Работа России', enabled: true }]
 )
+watch(providersQueryError, (e) => {
+  if (e) showApiQueryErrorToast(e, 'Не удалось загрузить провайдеры импорта')
+})
+
 const selectedProvider = computed(() => providers.value.find((p) => p.id === provider.value))
 
 const { mutateAsync: runImport, isPending } = useRunVacancyImportMutation()

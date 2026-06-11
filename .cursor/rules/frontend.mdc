@@ -70,8 +70,9 @@ if (import.meta.hot) handleHotUpdate(router)
 
 Уже настроен:
 
-- Interceptor запроса: подставляет Bearer-токен из localStorage
-- Interceptor ответа: при 401 пробует refresh через `/auth/refresh`
+- Interceptor запроса: подставляет Bearer-токен из `auth-storage` (`access_token`)
+- Interceptor ответа: при 401 — `POST /auth/refresh` с `{ refreshToken }` из localStorage; при fail — toast через `sessionStorage` + redirect `/login`
+- Toast: `import { toast } from '@repo/ui'`; ошибки API — `showApiMutationErrorToast` / `showApiQueryErrorToast` из `@/shared/lib/api-error`
 
 Паттерн API-файла:
 

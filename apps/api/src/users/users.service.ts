@@ -3,7 +3,7 @@ import type { UserRole } from '@repo/shared'
 import { desc, eq } from 'drizzle-orm'
 
 import { DRIZZLE, type DrizzleDb } from '../database/database.module.js'
-import { users, type NewUser, type User } from '../database/schema/index.js'
+import { refreshTokens, users, type NewUser, type User } from '../database/schema/index.js'
 
 @Injectable()
 export class UsersService {
@@ -35,6 +35,9 @@ export class UsersService {
     }
     const [user] = await this.db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, id)).returning()
     if (!user) throw new NotFoundException('Пользователь не найден')
+
+    await this.db.delete(refreshTokens).where(eq(refreshTokens.userId, id))
+
     return user
   }
 

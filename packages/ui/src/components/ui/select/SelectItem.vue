@@ -16,7 +16,7 @@
     <span class="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
       <SelectItemIndicator>
         <slot name="indicator-icon">
-          <CheckIcon class="pointer-events-none" />
+          <PhCheck class="pointer-events-none" />
         </slot>
       </SelectItemIndicator>
     </span>
@@ -28,8 +28,8 @@
 </template>
 
 <script setup lang="ts">
+import { PhCheck } from '@phosphor-icons/vue'
 import { reactiveOmit } from '@vueuse/core'
-import { CheckIcon } from 'lucide-vue-next'
 import type { SelectItemProps } from 'reka-ui'
 import { SelectItem, SelectItemIndicator, SelectItemText, useForwardProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'

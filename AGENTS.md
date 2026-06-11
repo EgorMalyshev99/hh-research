@@ -12,7 +12,15 @@
 | `employer`   | CRUD своих вакансий (`/my-vacancies`)                      |
 | `admin`      | Импорт (Trudvsem, SuperJob), пользователи, история импорта |
 
-При регистрации: `employer | job_seeker`. `admin` — через `PATCH /users/:id/role`.
+При регистрации: `employer | job_seeker`. `admin` — через `PATCH /users/:id/role` или CLI `pnpm api:create-admin`.
+
+## Auth (localStorage)
+
+- API возвращает `{ accessToken, refreshToken }` на login/register/refresh
+- Dashboard: `shared/lib/auth-storage.ts` — ключи `access_token`, `refresh_token`
+- Refresh/logout: body `{ refreshToken }` (не cookies)
+- `GET /auth/me` — 401 если пользователь удалён
+- `JwtStrategy.validate` — role из БД; refresh revoke при `updateRole`
 
 ## REST API (префикс `/api`)
 
@@ -57,7 +65,15 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 pnpm --filter api drizzle-kit push
 pnpm dev
+pnpm test
 ```
+
+## Тесты и OpenAPI
+
+- `pnpm test` — Vitest (shared, api, dashboard)
+- `pnpm test:e2e` — Playwright `/login` deep link
+- `pnpm api:openapi:export` — offline OpenAPI 3.1 → `apps/api/openapi/openapi.json`
+- `pnpm api:create-admin` — bootstrap первого admin (см. `.cursor/rules/auth.mdc`)
 
 ## Монорепо
 

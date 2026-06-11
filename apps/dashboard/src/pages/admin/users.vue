@@ -1,7 +1,10 @@
 <template>
   <DefaultLayout>
     <h1 class="mb-6 text-2xl font-bold tracking-tight">Пользователи</h1>
-    <Table>
+
+    <div v-if="isPending" class="text-muted-foreground text-sm">Загрузка…</div>
+    <div v-else-if="isError" class="text-destructive text-sm">Не удалось загрузить список пользователей</div>
+    <Table v-else>
       <TableHeader>
         <TableRow>
           <TableHead>Email</TableHead>
@@ -34,22 +37,30 @@
 
 <script setup lang="ts">
 import type { UserRole } from '@repo/shared'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@repo/ui'
-import { computed } from 'vue'
-import { toast } from 'vue-sonner'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, toast } from '@repo/ui'
+import { computed, watch } from 'vue'
 
 import { useAdminUsersQuery, useUpdateUserRoleMutation } from '@/entities/user'
 import DefaultLayout from '@/widgets/default-layout/DefaultLayout.vue'
+import { showApiMutationErrorToast, showApiQueryErrorToast } from '@/shared/lib/api-error'
 
-const { data } = useAdminUsersQuery()
+const { data, isPending, isError, error } = useAdminUsersQuery()
 const { mutateAsync: updateRole } = useUpdateUserRoleMutation()
 
 const users = computed(() => data.value ?? [])
 
+watch(error, (e) => {
+  if (e) showApiQueryErrorToast(e, 'Не удалось загрузить пользователей')
+})
+
 const fmt = (iso: string) => new Date(iso).toLocaleDateString('ru-RU')
 
 async function onRoleChange(id: number, role: string) {
-  await updateRole({ id, role: role as UserRole })
-  toast.success('Роль обновлена')
+  try {
+    await updateRole({ id, role: role as UserRole })
+    toast.success('Роль обновлена')
+  } catch (e) {
+    showApiMutationErrorToast(e, 'Не удалось обновить роль')
+  }
 }
 </script>

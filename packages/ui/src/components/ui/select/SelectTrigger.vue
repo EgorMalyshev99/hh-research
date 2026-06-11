@@ -19,14 +19,14 @@
   >
     <slot />
     <SelectIcon as-child>
-      <ChevronDownIcon class="text-muted-foreground pointer-events-none size-4" />
+      <PhCaretDown class="text-muted-foreground pointer-events-none size-4" />
     </SelectIcon>
   </SelectTrigger>
 </template>
 
 <script setup lang="ts">
+import { PhCaretDown } from '@phosphor-icons/vue'
 import { reactiveOmit } from '@vueuse/core'
-import { ChevronDownIcon } from 'lucide-vue-next'
 import type { SelectTriggerProps } from 'reka-ui'
 import { SelectIcon, SelectTrigger, useForwardProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'

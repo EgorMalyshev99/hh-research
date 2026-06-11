@@ -76,7 +76,7 @@ const secret = this.configService.getOrThrow('JWT_ACCESS_SECRET');
 
 **URL внешних и внутренних сервисов** (`DASHBOARD_URL`, `LANDING_URL`, `HH_API_BASE`, …) — только из `ConfigService` / `config.schema.ts`.
 
-**LLM:** провайдер и модель — из **`POST /search/run`** + `settings` (`LlmRuntimeContext`); ключи только в env. **`GET /llm/status`** возвращает статус каждого из `gemini | openrouter | groq`. **Gemini** — Generative Language API; **openrouter** / **groq** — OpenAI-compatible в `LlmService`. Таймаут вызовов скоринга/писем — **`LLM_REQUEST_TIMEOUT_MS`** (`AbortSignal.timeout`). Ошибки провайдера: коды `LLM_TIMEOUT` (504), `LLM_RATE_LIMIT` (429), `LLM_UPSTREAM` / `LLM_NETWORK` / `LLM_EMPTY` (502) и др. в `HttpException`.
+**LLM:** провайдер и модель — из тела LLM-запросов + `settings` (`LlmRuntimeContext`); ключи только в env. **`GET /llm/status`** — только `@Roles('admin')`.
 
 **Telegram:** интеграция в `TelegramModule/TelegramService`. Глобальный `AllExceptionsFilter` отправляет `5xx` в групповой чат (`TELEGRAM_ERRORS_CHAT_ID`). `SearchService` отправляет пользователю краткий дайджест вакансий (название + ссылка) в `users.telegram_chat_id` после завершения прогона. Настройка пользователем — `POST /api/auth/telegram/connect` и `POST /api/auth/telegram/disconnect`.
 
@@ -87,31 +87,29 @@ const secret = this.configService.getOrThrow('JWT_ACCESS_SECRET');
 
 ## Swagger / OpenAPI
 
-- UI: **`GET /docs`** (без глобального префикса `/api`). Спецификация: **`GET /docs-json`**. Сохранение в файл: **`pnpm --filter api run openapi:export`** (из `apps/api`, API должен слушать порт; при необходимости задать **`OPENAPI_URL`**).
-- Схемы request body генерируются из zod через `nestjs-zod`: `createZodDto(ZodSchema)` → `@ApiBody({ type: Dto })`. Документ дочищается `cleanupOpenApiDoc()` из `nestjs-zod` в `swagger-document.ts`.
+- UI: **`GET /docs`** (без глобального префикса `/api`) — только если `NODE_ENV !== 'production'` или `SWAGGER_ENABLED=true`.
+- Offline export: **`pnpm api:openapi:export`** → `apps/api/openapi/openapi.json` (OpenAPI 3.1, без запущенного сервера).
+- Схемы: zod в `@repo/shared` → `createZodDto` → `@ApiBody` / `@ApiOkResponse`. Документ: `cleanupOpenApiDoc()` в `swagger-document.ts`.
 
 ## Авторизация
 
-- `JwtAuthGuard` — применять через `@UseGuards(JwtAuthGuard)` к защищённым эндпоинтам
-- JWT payload: `{ sub: number, email: string }` (тип `JwtPayload`)
-- Refresh-токен — в httpOnly cookie `refresh_token`
-- `bcryptjs` — для хэширования паролей (cost factor = 12) и токенов (cost factor = 10)
+- `JwtAuthGuard` + `RolesGuard` — глобально через `APP_GUARD`
+- JWT payload: `{ sub, email, role }` — role из БД в `JwtStrategy.validate`
+- Refresh/access — JSON + localStorage на dashboard (см. `auth.mdc`)
+- `bcryptjs` — пароли (cost 12), refresh hash (cost 10)
+- Rate limit: `@Throttle` на `/auth/login`, `/auth/register`
+- `helmet` в `main.ts`
 
 ## Валидация входящих данных
 
 Zod-схемы живут в `packages/shared/src/schemas/`.
 
-В контроллерах: парсить `@Body() body: unknown` через zod напрямую:
+В контроллерах: `safeParse` + `BadRequestException(flatten())`:
 
 ```typescript
-@Post('example')
-async create(@Body() body: unknown) {
-  const dto = ExampleSchema.parse(body);
-  // ...
-}
+const parsed = ExampleSchema.safeParse(body)
+if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
 ```
-
-Или использовать `nestjs-zod` для автоматической валидации через pipe.
 
 ## Логирование
 

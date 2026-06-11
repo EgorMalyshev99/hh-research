@@ -4,8 +4,10 @@ import { ref, computed } from 'vue'
 
 import { authApi } from '../api/auth.api'
 
+import { clearTokens, getAccessToken, setTokens } from '@/shared/lib/auth-storage'
+
 export const useAuthStore = defineStore('auth', () => {
-  const accessToken = ref<string | null>(localStorage.getItem('access_token'))
+  const accessToken = ref<string | null>(getAccessToken())
   const me = ref<UserDto | null>(null)
 
   const isAuthenticated = computed(() => !!accessToken.value)
@@ -17,14 +19,14 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(dto: LoginDto) {
     const tokens = await authApi.login(dto)
     accessToken.value = tokens.accessToken
-    localStorage.setItem('access_token', tokens.accessToken)
+    setTokens(tokens)
     await fetchMe()
   }
 
   async function register(dto: RegisterDto) {
     const tokens = await authApi.register(dto)
     accessToken.value = tokens.accessToken
-    localStorage.setItem('access_token', tokens.accessToken)
+    setTokens(tokens)
     await fetchMe()
   }
 
@@ -44,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       accessToken.value = null
       me.value = null
-      localStorage.removeItem('access_token')
+      clearTokens()
     }
   }
 

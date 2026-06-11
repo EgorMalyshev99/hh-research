@@ -1,0 +1,37 @@
+---
+description: Vitest, Playwright, turbo test task — iter.1 critical specs.
+globs: '**/*.{spec.ts,spec.tsx,e2e/**}'
+alwaysApply: false
+---
+
+# Тестирование
+
+## Команды
+
+```bash
+pnpm test           # turbo: shared + api + dashboard unit
+pnpm test:e2e       # Playwright (dashboard)
+pnpm api:openapi:export
+pnpm api:create-admin -- --email ... --name ... --password ...
+```
+
+## Iter.1 (критичное)
+
+| Package              | Файл                        | Что проверяем                  |
+| -------------------- | --------------------------- | ------------------------------ |
+| `packages/shared`    | `password-criteria.spec.ts` | 4 критерия пароля              |
+| `apps/api`           | `auth.service.spec.ts`      | refresh/login 401              |
+| `apps/api`           | `jwt.strategy.spec.ts`      | user missing → 401, role из БД |
+| `apps/dashboard`     | `auth-storage.spec.ts`      | localStorage tokens            |
+| `apps/dashboard/e2e` | `login-deep-link.spec.ts`   | `/login` deep link             |
+
+## Правила
+
+- **Запрещено** `if (process.env.VITEST)` в prod-коде
+- Тестировать публичные границы: exported functions, service methods
+- API: `@nestjs/testing` + mock providers (`UsersService`, `DRIZZLE`)
+- Dashboard unit: `happy-dom`; e2e: `@playwright/test` + `webServer` preview
+
+## Iter.2 (backlog)
+
+RolesGuard, AllExceptionsFilter, auth.store, toast e2e, create-admin CLI, supertest HTTP.

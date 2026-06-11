@@ -83,15 +83,19 @@ export class AuthService {
     }
 
     const user = await this.usersService.findById(userId)
-    if (!user) throw new UnauthorizedException()
+    if (!user) throw new UnauthorizedException('Пользователь не найден')
 
     return this.issueTokens(user.id, user.email, user.role)
   }
 
   verifyRefreshToken(token: string): JwtPayload {
-    return this.jwtService.verify<JwtPayload>(token, {
-      secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
-    })
+    try {
+      return this.jwtService.verify<JwtPayload>(token, {
+        secret: this.configService.getOrThrow('JWT_REFRESH_SECRET'),
+      })
+    } catch {
+      throw new UnauthorizedException('Refresh-токен недействителен или истёк')
+    }
   }
 
   private async issueTokens(
@@ -109,9 +113,11 @@ export class AuthService {
       expiresIn,
     })
 
+    const decoded = this.jwtService.decode(refreshToken) as JwtPayload | null
+    const expiresAt =
+      decoded?.exp != null ? new Date(decoded.exp * 1000) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+
     const tokenHash = await bcrypt.hash(refreshToken, 10)
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7)
 
     await this.db.insert(refreshTokens).values({
       userId,

@@ -22,13 +22,14 @@
 
 <script setup lang="ts">
 import { Button, Input } from '@repo/ui'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/entities/auth'
 import { useStatsQuery } from '@/entities/stats'
 import { useVacanciesQuery } from '@/entities/vacancy'
 import DefaultLayout from '@/widgets/default-layout/DefaultLayout.vue'
 import VacancyList from '@/widgets/vacancy-list/VacancyList.vue'
+import { showApiQueryErrorToast } from '@/shared/lib/api-error'
 
 const authStore = useAuthStore()
 const canBrowse = computed(() => authStore.isJobSeeker || authStore.isAdmin)
@@ -38,7 +39,11 @@ const searchLocation = ref('')
 const filters = reactive({ q: '', location: '' })
 
 const { data: vacanciesData, isPending: vacanciesPending, isError: vacanciesError } = useVacanciesQuery(filters)
-const { data: statsData } = useStatsQuery()
+const { data: statsData, error: statsError } = useStatsQuery()
+
+watch(statsError, (e) => {
+  if (e) showApiQueryErrorToast(e, 'Не удалось загрузить статистику')
+})
 
 const vacancies = computed(() => (canBrowse.value ? (vacanciesData.value ?? []) : []))
 const statsSummary = computed(() => (canBrowse.value ? (statsData.value ?? null) : null))

@@ -8,6 +8,10 @@ export const configSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  SWAGGER_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v === 'true' || v === '1')),
   DASHBOARD_URL: z.string().url('DASHBOARD_URL должен быть корректным URL'),
   LANDING_URL: z.string().url('LANDING_URL должен быть корректным URL'),
   CORS_ORIGINS: z.string().optional(),

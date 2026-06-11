@@ -41,14 +41,14 @@
 
 <script setup lang="ts">
 import { VacancyCreateSchema } from '@repo/shared'
-import { Button, Field, FieldError, FieldLabel, Input, Textarea } from '@repo/ui'
+import { Button, Field, FieldError, FieldLabel, Input, Textarea, toast } from '@repo/ui'
 import { toTypedSchema } from '@vee-validate/zod'
 import { Field as VeeField, useForm } from 'vee-validate'
 import { watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
-import { toast } from 'vue-sonner'
 
 import { useCreateMyVacancyMutation, useMyVacanciesQuery, useUpdateMyVacancyMutation } from '@/entities/vacancy'
+import { showApiMutationErrorToast } from '@/shared/lib/api-error'
 
 const props = defineProps<{ vacancyId?: number }>()
 
@@ -84,13 +84,17 @@ watchEffect(() => {
 })
 
 const onSubmit = handleSubmit(async (values) => {
-  if (props.vacancyId) {
-    await updateVacancy({ id: props.vacancyId, body: values })
-    toast.success('Вакансия обновлена')
-  } else {
-    await createVacancy(values)
-    toast.success('Вакансия создана')
+  try {
+    if (props.vacancyId) {
+      await updateVacancy({ id: props.vacancyId, body: values })
+      toast.success('Вакансия обновлена')
+    } else {
+      await createVacancy(values)
+      toast.success('Вакансия создана')
+    }
+    await router.push('/my-vacancies')
+  } catch (e) {
+    showApiMutationErrorToast(e, props.vacancyId ? 'Не удалось сохранить вакансию' : 'Не удалось создать вакансию')
   }
-  await router.push('/my-vacancies')
 })
 </script>

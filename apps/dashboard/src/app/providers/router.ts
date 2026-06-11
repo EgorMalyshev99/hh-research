@@ -3,6 +3,8 @@ import { routes, handleHotUpdate } from 'vue-router/auto-routes'
 
 import { pinia } from './pinia'
 
+import { toast } from '@repo/ui'
+
 import { useAuthStore } from '@/entities/auth'
 
 const publicPaths = new Set(['/login', '/register'])
@@ -39,6 +41,7 @@ router.beforeEach(async (to) => {
       await authStore.fetchMe()
     } catch {
       await authStore.logout()
+      toast.error('Сессия истекла. Войдите снова.')
       return { path: '/login', query: { redirect: to.fullPath } }
     }
   }

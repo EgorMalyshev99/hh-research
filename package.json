@@ -17,7 +17,11 @@
     "ui:lint": "turbo run lint --filter=@repo/ui",
     "check-types": "turbo run check-types",
     "format": "prettier --write \"**/*.{ts,vue,md,json}\"",
-    "format:check": "prettier --check \"**/*.{ts,vue,md,json}\""
+    "format:check": "prettier --check \"**/*.{ts,vue,md,json}\"",
+    "test": "turbo run test",
+    "test:e2e": "pnpm --filter dashboard test:e2e",
+    "api:create-admin": "pnpm --filter api create-admin",
+    "api:openapi:export": "pnpm --filter api openapi:export"
   },
   "devDependencies": {
     "eslint": "^10.2.1",

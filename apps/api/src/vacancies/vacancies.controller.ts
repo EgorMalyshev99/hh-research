@@ -12,7 +12,14 @@ import {
   Query,
   Req,
 } from '@nestjs/common'
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger'
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger'
 import {
   AnalyzeResumeBodySchema,
   LlmRuntimeContextSchema,
@@ -25,6 +32,15 @@ import { z } from 'zod'
 
 import type { JwtPayload } from '../auth/strategies/jwt.strategy.js'
 import { Roles } from '../common/decorators/roles.decorator.js'
+import { ApiErrorDto } from '../common/dto/api-error.dto.js'
+import {
+  LlmResumeAnalysisResponseDto,
+  OkResponseDto,
+  StoredVacancyListDto,
+  StoredVacancyRowDto,
+  VacancyCreateBodyDto,
+  VacancyUpdateBodyDto,
+} from '../common/dto/domain.dto.js'
 import { LlmService } from '../llm/llm.service.js'
 
 import { mapVacancyRow, VacanciesService } from './vacancies.service.js'
@@ -40,6 +56,9 @@ export class VacanciesController {
 
   @Get()
   @Roles('job_seeker', 'admin')
+  @ApiOkResponse({ type: StoredVacancyListDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async listCatalog(@Req() req: Request & { user: JwtPayload }, @Query() query: unknown) {
     const parsed = VacancyListQuerySchema.safeParse(query ?? {})
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
@@ -49,6 +68,8 @@ export class VacanciesController {
 
   @Get(':id')
   @Roles('job_seeker', 'admin')
+  @ApiOkResponse({ type: StoredVacancyRowDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async getCatalog(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
     const row = await this.vacanciesService.getCatalogById(req.user.sub, id)
     return mapVacancyRow(row, row.userState)
@@ -56,6 +77,8 @@ export class VacanciesController {
 
   @Patch(':id/viewed')
   @Roles('job_seeker')
+  @ApiOkResponse({ type: StoredVacancyRowDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async viewed(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
     await this.vacanciesService.markViewed(req.user.sub, id)
     const row = await this.vacanciesService.getCatalogById(req.user.sub, id)
@@ -64,6 +87,8 @@ export class VacanciesController {
 
   @Patch(':id/applied')
   @Roles('job_seeker')
+  @ApiOkResponse({ type: StoredVacancyRowDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async applied(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
     await this.vacanciesService.markApplied(req.user.sub, id)
     const row = await this.vacanciesService.getCatalogById(req.user.sub, id)
@@ -72,6 +97,8 @@ export class VacanciesController {
 
   @Delete(':id')
   @Roles('job_seeker')
+  @ApiOkResponse({ type: OkResponseDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async hide(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
     await this.vacanciesService.hide(req.user.sub, id)
     return { ok: true }
@@ -79,6 +106,9 @@ export class VacanciesController {
 
   @Post(':id/analyze-resume')
   @Roles('job_seeker')
+  @ApiOkResponse({ type: LlmResumeAnalysisResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async analyzeResume(
     @Req() req: Request & { user: JwtPayload },
     @Param('id', ParseIntPipe) id: number,
@@ -113,6 +143,9 @@ export class VacanciesController {
 
   @Post(':id/cover-letter')
   @Roles('job_seeker')
+  @ApiOkResponse({ type: StoredVacancyRowDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async coverLetter(
     @Req() req: Request & { user: JwtPayload },
     @Param('id', ParseIntPipe) id: number,
@@ -154,6 +187,8 @@ export class MyVacanciesController {
 
   @Get()
   @Roles('employer')
+  @ApiOkResponse({ type: StoredVacancyListDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async list(@Req() req: Request & { user: JwtPayload }) {
     const rows = await this.vacanciesService.listMine(req.user.sub)
     return rows.map((r) => mapVacancyRow(r, null))
@@ -161,6 +196,10 @@ export class MyVacanciesController {
 
   @Post()
   @Roles('employer')
+  @ApiBody({ type: VacancyCreateBodyDto })
+  @ApiOkResponse({ type: StoredVacancyRowDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async create(@Req() req: Request & { user: JwtPayload }, @Body() body: unknown) {
     const parsed = VacancyCreateSchema.safeParse(body)
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten())
@@ -170,6 +209,10 @@ export class MyVacanciesController {
 
   @Put(':id')
   @Roles('employer')
+  @ApiBody({ type: VacancyUpdateBodyDto })
+  @ApiOkResponse({ type: StoredVacancyRowDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async update(
     @Req() req: Request & { user: JwtPayload },
     @Param('id', ParseIntPipe) id: number,
@@ -183,6 +226,8 @@ export class MyVacanciesController {
 
   @Delete(':id')
   @Roles('employer')
+  @ApiOkResponse({ type: OkResponseDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
   async remove(@Req() req: Request & { user: JwtPayload }, @Param('id', ParseIntPipe) id: number) {
     await this.vacanciesService.deleteManual(req.user.sub, id)
     return { ok: true }

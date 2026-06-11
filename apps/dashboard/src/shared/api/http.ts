@@ -1,17 +1,19 @@
 import axios, { type AxiosError } from 'axios'
 
 import { API_BASE_URL } from '@/shared/config/env'
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '@/shared/lib/auth-storage'
+
+export const AUTH_ERROR_SESSION_KEY = 'auth_error'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = getAccessToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -30,15 +32,26 @@ api.interceptors.response.use(
     const isRefreshRequest = cfg.url?.includes('/auth/refresh') ?? false
 
     if (error.response?.status === 401 && !isRefreshRequest) {
+      const refreshToken = getRefreshToken()
+      if (!refreshToken) {
+        clearTokens()
+        sessionStorage.setItem(AUTH_ERROR_SESSION_KEY, 'Сессия истекла. Войдите снова.')
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
       try {
-        const { data } = await api.post<{ accessToken: string }>('/auth/refresh')
-        localStorage.setItem('access_token', data.accessToken)
+        const { data } = await api.post<{ accessToken: string; refreshToken: string }>('/auth/refresh', {
+          refreshToken,
+        })
+        setTokens(data)
         if (cfg.headers) {
           cfg.headers.Authorization = `Bearer ${data.accessToken}`
         }
         return api.request(cfg)
       } catch {
-        localStorage.removeItem('access_token')
+        clearTokens()
+        sessionStorage.setItem(AUTH_ERROR_SESSION_KEY, 'Сессия истекла. Войдите снова.')
         window.location.href = '/login'
         return Promise.reject(error)
       }
